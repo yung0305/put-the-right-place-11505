@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>將文字擺放至正確位置 - 可愛升級版</title>
+    <style>
+        :root {
+            --primary-color: #FF9A9E;
+            --primary-dark: #FF7479;
+            --success-color: #84E3C8;
+            --success-dark: #5ACBAA;
+            --accent-color: #FECF6A;
+            --accent-dark: #F3B536;
+            --text-color: #555;
+        }
+        body {
+            font-family: 'Comic Sans MS', "Microsoft JhengHei", sans-serif;
+            margin: 0;
+            padding: 10px 20px;
+            background: linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-color);
+            overflow-x: hidden;
+        }
+        h1 { 
+            color: #fff;
+            margin-bottom: 15px; 
+            font-size: 2.2rem;
+            text-shadow: 3px 3px 0px #FF9A9E, 6px 6px 0px rgba(0,0,0,0.1);
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        /* 控制面板 */
+        .admin-panel {
+            width: 90vw;
+            max-width: 800px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            border: 4px dashed #FECF6A;
+        }
+        .control-group {
+            border-bottom: 2px dashed #eee;
+            padding-bottom: 15px;
+            margin-bottom: 15px;
+            font-size: 1.05rem;
+        }
+        .control-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        /* 按鈕樣式 */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.95rem;
+            margin-right: 5px;
+            margin-top: 8px;
+            transition: all 0.1s;
+            box-shadow: 0 5px 0px rgba(0,0,0,0.1);
+            font-family: inherit;
+            position: relative;
+        }
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 0px 0px rgba(0,0,0,0.1);
+        }
+        .btn-primary { background: var(--primary-color); color: white; box-shadow: 0 5px 0px var(--primary-dark); }
+        .btn-success { background: var(--success-color); color: #1a634e; box-shadow: 0 5px 0px var(--success-dark); font-size: 1.2rem; padding: 12px 25px; }
+        .btn-outline { background: white; border: 2px solid #ccc; color: #555; box-shadow: 0 4px 0px #ccc; }
+
+        input[type="file"], input[type="text"], select {
+            padding: 8px;
+            border-radius: 10px;
+            border: 2px solid #ddd;
+            font-family: inherit;
+            margin-top: 5px;
+        }
+
+        /* 遊戲區域 */
+        #gameWrapper {
+            width: 95vw;
+            max-width: 1000px;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        #gameContainer {
+            position: relative;
+            border: 8px solid white;
+            border-radius: 20px;
+            background-color: #fff;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            overflow: hidden;
+            min-height: 300px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #bgImage {
+            max-width: 100%;
+            max-height: 55vh;
+            object-fit: contain;
+            display: none;
+            user-select: none;
+            -webkit-user-drag: none;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        #backToAdminBtn {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 50;
+            display: none;
+            background: white;
+            color: #FF9A9E;
+            border: 3px solid #FF9A9E;
+            box-shadow: 0 4px 0 #FF9A9E;
+        }
+
+        /* 標籤樣式 */
+        .text-label {
+            position: absolute;
+            background: white;
+            border: 3px solid var(--primary-color);
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: grab;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--primary-dark);
+            transform: translate(-50%, -50%);
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            touch-action: none;
+        }
+        .text-label.correct {
+            border-color: var(--success-dark);
+            background: var(--success-color);
+            color: #1a634e;
+            cursor: default;
+            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes pop {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.2); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        .del-btn {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4757;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            border: 2px solid white;
+        }
+
+        /* 待選區池子 - 已將標題往下調整防止遮擋圖片 */
+        #poolArea {
+            width: 100%;
+            height: 180px;
+            background: #FFF5D1;
+            border-top: 6px dashed var(--accent-color);
+            display: none;
+            position: relative;
+            padding-top: 45px; /* 增加頂部間距給標題空間 */
+            border-radius: 0 0 12px 12px;
+        }
+        .pool-title {
+            text-align: center;
+            color: #D39B22;
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+            background: white;
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 20px;
+            position: absolute;
+            top: 10px; /* 從 -18px 往下調整到 10px，避免遮擋底圖 [cite: 43] */
+            left: 50%;
+            transform: translateX(-50%);
+            border: 3px solid var(--accent-color);
+            white-space: nowrap;
+            z-index: 5;
+        }
+
+        #winOverlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 100;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        #winOverlay h2 { font-size: 3.5rem; color: var(--success-dark); margin-bottom: 30px; animation: bounce 1s infinite alternate; }
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <h1>✨ 將文字擺放至正確位置 ✨</h1>
+
+    <div class="admin-panel" id="adminPanel">
+        <div class="control-group">
+            <strong>🛠️ 1. 老師設定區：</strong>
+            <br>
+            <input type="file" id="imageUpload" accept="image/*">
+            <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 匯入設定檔</button>
+            <input type="file" id="importFile" class="hidden" accept=".json">
+            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增標籤。(進度將自動儲存)</p>
+        </div>
+
+        <div class="control-group">
+            <strong>☁️ 2. 雲端題庫匯入：</strong>
+            <br>
+            <input type="text" id="githubRepo" placeholder="GitHub 帳號/倉庫名" style="width:200px">
+            <button class="btn btn-primary" onclick="loadGithubList()">🔍 找題目</button>
+            <select id="githubFileList" onchange="importFromGithub(this.value)">
+                <option value="">-- 請選擇題庫 --</option>
+            </select>
+        </div>
+
+        <div id="gameActions" style="text-align: center; margin-top: 15px;">
+            <button id="startBtn" class="btn btn-success" style="display:none;">🚀 開始遊戲！</button>
+        </div>
+    </div>
+
+    <div id="gameWrapper">
+        <div id="gameContainer">
+            <button id="backToAdminBtn" class="btn" onclick="backToAdmin()">⚙️ 回設定</button>
+            <img id="bgImage">
+            <div id="poolArea">
+                <p class="pool-title">🧸 待選區：請把我們拖到正確的圖案上！</p>
+            </div>
+            
+            <div id="winOverlay">
+                <h2>🎉 完成了，很棒！ 🎉</h2>
+                <button class="btn btn-primary" onclick="replayGame()" style="font-size:1.8rem; padding:15px 40px; box-shadow: 0 8px 0 var(--primary-dark);">再來一次 🔄</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const bgImage = document.getElementById('bgImage');
+        const gameContainer = document.getElementById('gameContainer');
+        const poolArea = document.getElementById('poolArea');
+        const startBtn = document.getElementById('startBtn');
+        const winOverlay = document.getElementById('winOverlay');
+        const backToAdminBtn = document.getElementById('backToAdminBtn');
+        
+        let config = { imageData: null, labels: [] };
+        let isPlaying = false;
+        let hasWon = false;
+
+        // --- 自動儲存 ---
+        function autoSave() {
+            if (!config.imageData && config.labels.length === 0) return;
+            const dataToSave = {
+                imageData: config.imageData,
+                labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY }))
+            };
+            localStorage.setItem('cuteDragGameAutoSave', JSON.stringify(dataToSave));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedData = localStorage.getItem('cuteDragGameAutoSave');
+            if (savedData) {
+                try { loadJsonToGame(savedData); } catch(e) { console.error("自動讀取失敗", e); }
+            }
+        });
+
+        // --- 核心功能 ---
+        function addLabel(text, x, y) {
+            const label = document.createElement('div');
+            label.className = 'text-label';
+            label.innerText = text;
+            label.style.left = x + 'px';
+            label.style.top = y + 'px';
+            
+            const del = document.createElement('span');
+            del.className = 'del-btn';
+            del.innerHTML = '&times;';
+            del.onclick = (e) => {
+                e.stopPropagation();
+                if (isPlaying) return;
+                label.remove();
+                config.labels = config.labels.filter(l => l.el !== label);
+                checkStartReady();
+                autoSave();
+            };
+            label.appendChild(del);
+
+            gameContainer.appendChild(label);
+            const labelObj = { text, x, y, targetX: x, targetY: y, el: label, isCorrect: false };
+            config.labels.push(labelObj);
+            makeDraggable(labelObj);
+            checkStartReady();
+            autoSave();
+        }
+
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    bgImage.src = event.target.result;
+                    bgImage.style.display = 'block';
+                    config.imageData = event.target.result;
+                    autoSave();
+                    checkStartReady();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        bgImage.addEventListener('click', (e) => {
+            if (isPlaying) return;
+            const rect = gameContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const text = prompt("📝 輸入名稱：");
+            if (text) addLabel(text.trim(), x, y);
+        });
+
+        function checkStartReady() {
+            startBtn.style.display = (config.imageData && config.labels.length > 0) ? 'inline-block' : 'none';
+        }
+
+        function exportData() {
+            const data = { imageData: config.imageData, labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY })) };
+            const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = "game_config.json"; a.click();
+        }
+
+        document.getElementById('importFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => loadJsonToGame(event.target.result);
+                reader.readAsText(file);
+            }
+        });
+
+        function loadJsonToGame(jsonStr) {
+            const data = JSON.parse(jsonStr);
+            config.labels.forEach(l => l.el.remove());
+            config.labels = [];
+            config.imageData = data.imageData;
+            bgImage.src = data.imageData;
+            bgImage.style.display = 'block';
+            data.labels.forEach(l => addLabel(l.text, l.x, l.y));
+            autoSave();
+        }
+
+        // --- GitHub 雲端 ---
+        async function loadGithubList() {
+            const repo = document.getElementById('githubRepo').value;
+            if (!repo) return alert("請輸入 GitHub 倉庫名");
+            try {
+                const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
+                const files = await res.json();
+                const select = document.getElementById('githubFileList');
+                select.innerHTML = '<option value="">-- 選擇 JSON 檔案 --</option>';
+                files.filter(f => f.name.endsWith('.json')).forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.download_url; opt.innerText = f.name; select.appendChild(opt);
+                });
+            } catch (err) { alert("讀取失敗，請檢查路徑"); }
+        }
+
+        async function importFromGithub(url) {
+            if (!url) return;
+            const res = await fetch(url);
+            const text = await res.text();
+            loadJsonToGame(text);
+        }
+
+        // --- 遊戲邏輯 ---
+        startBtn.onclick = () => { startGameLogic(); };
+
+        function startGameLogic() {
+            isPlaying = true; hasWon = false;
+            document.getElementById('adminPanel').classList.add('hidden');
+            backToAdminBtn.style.display = 'block';
+            poolArea.style.display = 'block';
+            
+            const imgHeight = bgImage.offsetHeight;
+            gameContainer.style.height = (imgHeight + 180) + "px";
+            
+            config.labels.forEach((l) => {
+                l.el.querySelector('.del-btn').style.display = 'none';
+                l.isCorrect = false;
+                l.el.classList.remove('correct');
+                const randomX = Math.random() * (gameContainer.offsetWidth - 150) + 75;
+                const randomY = imgHeight + 100 + (Math.random() * 30 - 15);
+                l.el.style.left = randomX + 'px';
+                l.el.style.top = randomY + 'px';
+                l.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`;
+            });
+        }
+
+        function replayGame() { winOverlay.style.display = 'none'; startGameLogic(); }
+
+        function backToAdmin() {
+            isPlaying = false; hasWon = false;
+            winOverlay.style.display = 'none';
+            document.getElementById('adminPanel').classList.remove('hidden');
+            backToAdminBtn.style.display = 'none';
+            poolArea.style.display = 'none';
+            gameContainer.style.height = 'auto';
+            config.labels.forEach((l) => {
+                l.el.classList.remove('correct');
+                l.el.style.left = l.targetX + 'px';
+                l.el.style.top = l.targetY + 'px';
+                l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                l.el.querySelector('.del-btn').style.display = 'flex';
+            });
+            autoSave();
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const msg = new SpeechSynthesisUtterance(text);
+                msg.lang = 'zh-TW'; msg.rate = 0.9; window.speechSynthesis.speak(msg);
+            }
+        }
+
+        function makeDraggable(obj) {
+            const startDrag = (e) => {
+                if (obj.isCorrect && isPlaying) return;
+                if (isPlaying) { speak(obj.text); obj.el.style.transform = 'translate(-50%, -50%) scale(1.1)'; obj.el.style.zIndex = 100; }
+                if (e.cancelable) e.preventDefault();
+                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+                const moveDrag = (e) => {
+                    e.preventDefault();
+                    const currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                    const currentY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+                    const rect = gameContainer.getBoundingClientRect();
+                    obj.el.style.left = (currentX - rect.left) + 'px';
+                    obj.el.style.top = (currentY - rect.top) + 'px';
+                };
+
+                const endDrag = () => {
+                    document.removeEventListener('mousemove', moveDrag); document.removeEventListener('mouseup', endDrag);
+                    document.removeEventListener('touchmove', moveDrag); document.removeEventListener('touchend', endDrag);
+                    if (isPlaying) { obj.el.style.zIndex = 10; obj.el.style.transform = 'translate(-50%, -50%) scale(1)'; checkMatch(obj); }
+                    else { obj.targetX = parseFloat(obj.el.style.left); obj.targetY = parseFloat(obj.el.style.top); autoSave(); }
+                };
+                document.addEventListener('mousemove', moveDrag, { passive: false }); document.addEventListener('mouseup', endDrag);
+                document.addEventListener('touchmove', moveDrag, { passive: false }); document.addEventListener('touchend', endDrag);
+            };
+            obj.el.addEventListener('mousedown', startDrag);
+            obj.el.addEventListener('touchstart', startDrag, { passive: false });
+        }
+
+        function checkMatch(obj) {
+            const dist = Math.sqrt(Math.pow(parseFloat(obj.el.style.left) - obj.targetX, 2) + Math.pow(parseFloat(obj.el.style.top) - obj.targetY, 2));
+            if (dist < 60) {
+                obj.el.style.left = obj.targetX + 'px'; obj.el.style.top = obj.targetY + 'px';
+                obj.el.classList.add('correct'); obj.isCorrect = true;
+                if (config.labels.every(l => l.isCorrect) && !hasWon) {
+                    hasWon = true; setTimeout(() => { winOverlay.style.display = 'flex'; speak("完成了，很棒!"); }, 500);
+                }
+            } else { obj.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`; }
+        }
+    </script>
+</body>
+</html>

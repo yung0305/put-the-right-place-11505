@@ -177,7 +177,7 @@
             border: 2px solid white;
         }
 
-        /* 待選區池子 - 已將標題往下調整防止遮擋圖片 */
+        /* 待選區池子 */
         #poolArea {
             width: 100%;
             height: 180px;
@@ -185,7 +185,7 @@
             border-top: 6px dashed var(--accent-color);
             display: none;
             position: relative;
-            padding-top: 45px; /* 增加頂部間距給標題空間 */
+            padding-top: 45px; 
             border-radius: 0 0 12px 12px;
         }
         .pool-title {
@@ -199,7 +199,7 @@
             padding: 5px 20px;
             border-radius: 20px;
             position: absolute;
-            top: 10px; /* 從 -18px 往下調整到 10px，避免遮擋底圖 [cite: 43] */
+            top: 10px; 
             left: 50%;
             transform: translateX(-50%);
             border: 3px solid var(--accent-color);
@@ -232,20 +232,27 @@
             <strong>🛠️ 1. 老師設定區：</strong>
             <br>
             <input type="file" id="imageUpload" accept="image/*">
-            <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔</button>
-            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 匯入設定檔</button>
+            <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔 (JSON)</button>
+            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
             <input type="file" id="importFile" class="hidden" accept=".json">
             <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增標籤。(進度將自動儲存)</p>
         </div>
 
         <div class="control-group">
-            <strong>☁️ 2. 雲端題庫匯入：</strong>
-            <br>
-            <input type="text" id="githubRepo" placeholder="GitHub 帳號/倉庫名" style="width:200px">
-            <button class="btn btn-primary" onclick="loadGithubList()">🔍 找題目</button>
-            <select id="githubFileList" onchange="importFromGithub(this.value)">
-                <option value="">-- 請選擇題庫 --</option>
-            </select>
+            <strong>☁️ 2. 雲端題庫匯入 (GitHub)：</strong>
+            
+            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 方法 A：貼上檔案的 Raw 網址 (最穩定推薦)</p>
+            <input type="text" id="directJsonUrl" placeholder="https://raw.githubusercontent.com/..." style="width:70%; max-width: 400px;">
+            <button class="btn btn-primary" onclick="importFromGithub(document.getElementById('directJsonUrl').value)">📥 網址直接匯入</button>
+
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;">
+                <p style="color:#888; font-size:0.9rem; margin:0 0 5px 0;">🔍 方法 B：輸入「帳號/倉庫名」搜尋 (例如: user/repo)</p>
+                <input type="text" id="githubRepo" placeholder="GitHub 帳號/倉庫名" style="width:200px">
+                <button class="btn btn-outline" onclick="loadGithubList()">🔍 搜尋倉庫</button>
+                <select id="githubFileList" onchange="importFromGithub(this.value)" style="margin-left: 5px;">
+                    <option value="">-- 請選擇 JSON 檔案 --</option>
+                </select>
+            </div>
         </div>
 
         <div id="gameActions" style="text-align: center; margin-top: 15px;">
@@ -382,27 +389,51 @@
             autoSave();
         }
 
-        // --- GitHub 雲端 ---
+        // --- GitHub 雲端 (大幅優化版) ---
         async function loadGithubList() {
-            const repo = document.getElementById('githubRepo').value;
-            if (!repo) return alert("請輸入 GitHub 倉庫名");
+            const repo = document.getElementById('githubRepo').value.trim();
+            if (!repo) return alert("❌ 請先輸入 GitHub 帳號與倉庫名稱 (例如: yourname/yourrepo)");
             try {
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
+                if (!res.ok) throw new Error("找不到該倉庫或權限不足");
                 const files = await res.json();
                 const select = document.getElementById('githubFileList');
                 select.innerHTML = '<option value="">-- 選擇 JSON 檔案 --</option>';
+                let count = 0;
                 files.filter(f => f.name.endsWith('.json')).forEach(f => {
                     const opt = document.createElement('option');
                     opt.value = f.download_url; opt.innerText = f.name; select.appendChild(opt);
+                    count++;
                 });
-            } catch (err) { alert("讀取失敗，請檢查路徑"); }
+                if (count > 0) {
+                    alert(`✅ 成功找到 ${count} 個題庫，請從下拉選單選擇！`);
+                } else {
+                    alert("⚠️ 倉庫中沒有找到 .json 檔案喔。");
+                }
+            } catch (err) { alert("❌ 讀取失敗，請檢查倉庫路徑是否正確，或是否設為公開 (Public)。"); }
         }
 
         async function importFromGithub(url) {
-            if (!url) return;
-            const res = await fetch(url);
-            const text = await res.text();
-            loadJsonToGame(text);
+            if (!url) return alert("❌ 請提供或選擇有效的檔案網址！");
+            
+            // 將一般 github blob 網址自動轉換為 raw 網址防呆
+            if(url.includes("github.com") && url.includes("/blob/")) {
+                url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
+            }
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("網路請求失敗");
+                const text = await res.text();
+                loadJsonToGame(text);
+                alert("🎉 雲端題庫匯入成功！");
+                
+                // 若是由下拉選單觸發，則清空選單使其可重複選擇
+                document.getElementById('githubFileList').value = ""; 
+            } catch(err) {
+                alert("❌ 匯入失敗，請確認網址是否為有效的 JSON 檔案，或檔案庫是否為公開狀態。");
+                console.error(err);
+            }
         }
 
         // --- 遊戲邏輯 ---

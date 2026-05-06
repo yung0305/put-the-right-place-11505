@@ -239,18 +239,15 @@
         </div>
 
         <div class="control-group">
-            <strong>☁️ 2. 雲端題庫匯入 (GitHub)：</strong>
+            <strong>☁️ 2. 雲端題庫匯入：</strong>
+            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 直接從下拉選單選擇您要玩的題庫：</p>
             
-            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 方法 A：貼上檔案的 Raw 網址 (最穩定推薦)</p>
-            <input type="text" id="directJsonUrl" placeholder="https://raw.githubusercontent.com/..." style="width:70%; max-width: 400px;">
-            <button class="btn btn-primary" onclick="importFromGithub(document.getElementById('directJsonUrl').value)">📥 網址直接匯入</button>
-
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;">
-                <p style="color:#888; font-size:0.9rem; margin:0 0 5px 0;">🔍 方法 B：輸入「帳號/倉庫名」搜尋 (例如: user/repo)</p>
-                <input type="text" id="githubRepo" placeholder="GitHub 帳號/倉庫名" style="width:200px">
-                <button class="btn btn-outline" onclick="loadGithubList()">🔍 搜尋倉庫</button>
-                <select id="githubFileList" onchange="importFromGithub(this.value)" style="margin-left: 5px;">
-                    <option value="">-- 請選擇 JSON 檔案 --</option>
+            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <input type="text" id="githubRepo" value="" placeholder="您的 GitHub 帳號/倉庫名" style="width:200px;">
+                <button class="btn btn-outline" onclick="loadGithubList(false)">🔄 重新整理列表</button>
+                
+                <select id="githubFileList" onchange="importFromGithub(this.value)" style="padding: 10px 15px; font-size: 1.1rem; border: 3px solid var(--accent-color); border-radius: 10px; background: #fff; cursor: pointer; min-width: 250px;">
+                    <option value="">-- 尚未讀取題庫 --</option>
                 </select>
             </div>
         </div>
@@ -298,9 +295,16 @@
         }
 
         window.addEventListener('DOMContentLoaded', () => {
+            // 1. 讀取本機自動儲存的進度
             const savedData = localStorage.getItem('cuteDragGameAutoSave');
             if (savedData) {
                 try { loadJsonToGame(savedData); } catch(e) { console.error("自動讀取失敗", e); }
+            }
+            
+            // 2. 如果預設有填寫 GitHub 倉庫名，載入網頁時自動抓取選單！
+            const repoInput = document.getElementById('githubRepo').value.trim();
+            if(repoInput !== "") {
+                loadGithubList(true); // true 代表靜默讀取，不跳出成功提示窗
             }
         });
 
@@ -389,49 +393,58 @@
             autoSave();
         }
 
-        // --- GitHub 雲端 (大幅優化版) ---
-        async function loadGithubList() {
+        // --- GitHub 下拉選單讀取功能 ---
+        async function loadGithubList(isSilent = false) {
             const repo = document.getElementById('githubRepo').value.trim();
-            if (!repo) return alert("❌ 請先輸入 GitHub 帳號與倉庫名稱 (例如: yourname/yourrepo)");
+            const select = document.getElementById('githubFileList');
+            
+            if (!repo) {
+                if (!isSilent) alert("❌ 請先填寫您的 GitHub 帳號與倉庫名稱！");
+                return;
+            }
+            
             try {
+                select.innerHTML = '<option value="">⏳ 題庫讀取中...</option>';
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
                 if (!res.ok) throw new Error("找不到該倉庫或權限不足");
+                
                 const files = await res.json();
-                const select = document.getElementById('githubFileList');
-                select.innerHTML = '<option value="">-- 選擇 JSON 檔案 --</option>';
+                select.innerHTML = '<option value="">-- 👇 請選擇題庫開始遊玩 --</option>';
+                
                 let count = 0;
                 files.filter(f => f.name.endsWith('.json')).forEach(f => {
                     const opt = document.createElement('option');
-                    opt.value = f.download_url; opt.innerText = f.name; select.appendChild(opt);
+                    opt.value = f.download_url; 
+                    // 在選單中隱藏 .json 副檔名，讓畫面看起來更乾淨
+                    opt.innerText = f.name.replace('.json', ''); 
+                    select.appendChild(opt);
                     count++;
                 });
+                
                 if (count > 0) {
-                    alert(`✅ 成功找到 ${count} 個題庫，請從下拉選單選擇！`);
+                    if (!isSilent) alert(`✅ 成功載入 ${count} 個題庫！`);
                 } else {
-                    alert("⚠️ 倉庫中沒有找到 .json 檔案喔。");
+                    select.innerHTML = '<option value="">-- 倉庫中沒有題庫 --</option>';
+                    if (!isSilent) alert("⚠️ 您的倉庫中沒有找到 .json 檔案喔。");
                 }
-            } catch (err) { alert("❌ 讀取失敗，請檢查倉庫路徑是否正確，或是否設為公開 (Public)。"); }
+            } catch (err) { 
+                select.innerHTML = '<option value="">-- 讀取失敗，請檢查倉庫 --</option>';
+                if (!isSilent) alert("❌ 讀取失敗，請確認倉庫路徑是否正確，以及是否設為公開 (Public)。"); 
+            }
         }
 
         async function importFromGithub(url) {
-            if (!url) return alert("❌ 請提供或選擇有效的檔案網址！");
-            
-            // 將一般 github blob 網址自動轉換為 raw 網址防呆
-            if(url.includes("github.com") && url.includes("/blob/")) {
-                url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/");
-            }
-
+            if (!url) return;
             try {
                 const res = await fetch(url);
                 if (!res.ok) throw new Error("網路請求失敗");
                 const text = await res.text();
                 loadJsonToGame(text);
-                alert("🎉 雲端題庫匯入成功！");
                 
-                // 若是由下拉選單觸發，則清空選單使其可重複選擇
+                // 匯入成功後，將選單復原，方便下次可以選同一個題庫重新讀取
                 document.getElementById('githubFileList').value = ""; 
             } catch(err) {
-                alert("❌ 匯入失敗，請確認網址是否為有效的 JSON 檔案，或檔案庫是否為公開狀態。");
+                alert("❌ 匯入失敗，請確認網路連線。");
                 console.error(err);
             }
         }

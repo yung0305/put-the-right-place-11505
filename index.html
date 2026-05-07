@@ -1,545 +1,721 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>將文字擺放至正確位置 - 可愛升級版</title>
-    <style>
-        :root {
-            --primary-color: #FF9A9E;
-            --primary-dark: #FF7479;
-            --success-color: #84E3C8;
-            --success-dark: #5ACBAA;
-            --accent-color: #FECF6A;
-            --accent-dark: #F3B536;
-            --text-color: #555;
-        }
-        body {
-            font-family: 'Comic Sans MS', "Microsoft JhengHei", sans-serif;
-            margin: 0;
-            padding: 10px 20px;
-            background: linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            color: var(--text-color);
-            overflow-x: hidden;
-        }
-        h1 { 
-            color: #fff;
-            margin-bottom: 15px; 
-            font-size: 2.2rem;
-            text-shadow: 3px 3px 0px #FF9A9E, 6px 6px 0px rgba(0,0,0,0.1);
-            letter-spacing: 2px;
-            text-align: center;
-        }
+<!doctype html>
+<html lang="zh-Hant">
+ <head>
+  <meta charset="UTF-8">
+  <title>【文特知識王】— 自動縮放無滑軌版</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* === 核心樣式設定 === */
+    html, body {
+      height: 100dvh;
+      width: 100vw;
+      background: #111;
+      overflow: hidden; /* 強制移除全域捲軸 */
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none; /* 徹底禁止大螢幕預設的縮放與滑動行為 */
+    }
+    
+    #stage { 
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(0,0,0,0.8);
+    }
 
-        /* 控制面板 */
-        .admin-panel {
-            width: 90vw;
-            max-width: 800px;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
-            border-radius: 25px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            margin-bottom: 15px;
-            box-sizing: border-box;
-            border: 4px dashed #FECF6A;
-        }
-        .control-group {
-            border-bottom: 2px dashed #eee;
-            padding-bottom: 15px;
-            margin-bottom: 15px;
-            font-size: 1.05rem;
-        }
-        .control-group:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
+    .dragging { 
+      pointer-events: none;
+      position: fixed;
+      z-index: 9999; 
+      opacity: 0.95; 
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+      will-change: transform;
+      transform-origin: center;
+      margin: 0 !important;
+    }
 
-        /* 按鈕樣式 */
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 0.95rem;
-            margin-right: 5px;
-            margin-top: 8px;
-            transition: all 0.1s;
-            box-shadow: 0 5px 0px rgba(0,0,0,0.1);
-            font-family: inherit;
-            position: relative;
-        }
-        .btn:active {
-            transform: translateY(5px);
-            box-shadow: 0 0px 0px rgba(0,0,0,0.1);
-        }
-        .btn-primary { background: var(--primary-color); color: white; box-shadow: 0 5px 0px var(--primary-dark); }
-        .btn-success { background: var(--success-color); color: #1a634e; box-shadow: 0 5px 0px var(--success-dark); font-size: 1.2rem; padding: 12px 25px; }
-        .btn-outline { background: white; border: 2px solid #ccc; color: #555; box-shadow: 0 4px 0px #ccc; }
+    .item-card {
+      touch-action: none;
+      will-change: transform;
+    }
+    
+    @keyframes correctPop { 
+      0%{transform:scale(0.8); opacity: 0.5;} 
+      50%{transform:scale(1.15);} 
+      100%{transform:scale(1); opacity: 1;} 
+    }
+    .correct-anim { animation: correctPop 400ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    
+    @keyframes zoneGlow {
+      0% { box-shadow: 0 0 0 0 rgba(34,197,94,0); border-color: rgba(255,255,255,1); }
+      50% { box-shadow: 0 0 40px 10px rgba(34,197,94,0.4); border-color: rgba(34,197,94,0.8); }
+      100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); border-color: rgba(255,255,255,1); }
+    }
+    .zone-glow-anim { animation: zoneGlow 600ms ease-out; }
 
-        input[type="file"], input[type="text"], select {
-            padding: 8px;
-            border-radius: 10px;
-            border: 2px solid #ddd;
-            font-family: inherit;
-            margin-top: 5px;
-        }
+    @keyframes wrongShake { 
+      0%,100%{transform:translateX(0) rotate(0);} 
+      20%{transform:translateX(-12px) rotate(-2deg);} 
+      40%{transform:translateX(12px) rotate(2deg);} 
+      60%{transform:translateX(-8px) rotate(-1deg);} 
+      80%{transform:translateX(8px) rotate(1deg);} 
+    }
+    .wrong-anim { animation: wrongShake 400ms ease-in-out; }
 
-        /* 遊戲區域 */
-        #gameWrapper {
-            width: 95vw;
-            max-width: 1000px;
-            display: flex;
-            justify-content: center;
-            position: relative;
+    /* 隱藏捲軸，套用於後台管理區 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+ </head>
+ <body class="antialiased">
+  
+  <div id="stage" class="relative w-full h-full bg-gradient-to-br from-sky-200 via-pink-100 to-amber-100 flex flex-col items-center">
+    
+    <div class="pointer-events-none absolute -top-16 -left-16 w-80 h-80 rounded-full bg-pink-300/30 blur-3xl z-0"></div>
+    <div class="pointer-events-none absolute -bottom-10 -right-10 w-96 h-96 rounded-full bg-sky-300/30 blur-3xl z-0"></div>
+
+    <div class="w-full h-full max-w-[1600px] flex flex-col relative z-10 overflow-hidden">
+      
+      <div class="h-14 md:h-20 flex items-center justify-between px-3 md:px-10 z-50 shrink-0">
+       <div class="flex items-center gap-2 md:gap-4 w-full md:w-auto overflow-hidden">
+ 
+        <div id="mainTitle" class="text-white/90 bg-gradient-to-r from-fuchsia-500 to-rose-500 px-3 py-1.5 md:px-5 md:py-2 rounded-lg md:rounded-2xl shadow-lg text-base md:text-2xl lg:text-3xl font-extrabold tracking-wide truncate max-w-[140px] sm:max-w-xs md:max-w-none">
+          【文特知識王】
+        </div>
+        <div id="scoreBox" class="play-only text-fuchsia-700 bg-white/80 backdrop-blur px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl shadow text-sm md:text-xl lg:text-2xl font-bold transition-all shrink-0">
+          分數：<span id="score">0</span>
+        </div>
+        <div id="timerBox" class="play-only text-sky-700 bg-white/80 backdrop-blur px-2 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl shadow text-sm md:text-xl lg:text-2xl font-bold shrink-0">
+          時間：<span id="timer">00:00</span>
+        </div>
+        <div id="saveIndicator" class="admin-only hidden text-emerald-700 bg-emerald-100 px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-sm md:text-xl font-bold opacity-0 transition-opacity">
+          已儲存
+        </div>
+       </div>
+       
+       <div class="flex items-center gap-1 md:gap-2 bg-white/80 backdrop-blur rounded-lg md:rounded-xl p-1 shadow-lg shrink-0 ml-2">
+         <button id="tabPlay" class="px-2 py-1.5 md:px-4 md:py-2 rounded-md md:rounded-lg text-sm md:text-lg font-extrabold text-slate-700 hover:bg-slate-100 data-[active=true]:bg-slate-900 data-[active=true]:text-white transition-colors" data-active="true">
+           🎮 <span class="hidden sm:inline">開始遊戲</span>
+         </button> 
+         <button id="tabAdmin" class="px-2 py-1.5 md:px-4 md:py-2 rounded-md md:rounded-lg text-sm md:text-lg font-extrabold text-slate-700 hover:bg-slate-100 data-[active=true]:bg-slate-900 data-[active=true]:text-white transition-colors">
+           ⚙️ <span class="hidden sm:inline">設定後台</span>
+         </button>
+       </div>
+      </div>
+
+      <div id="toast" class="pointer-events-none hidden fixed top-20 md:top-28 left-1/2 -translate-x-1/2 z-[60] bg-rose-500 text-white text-xl md:text-3xl font-extrabold px-4 md:px-6 py-2 md:py-3 rounded-xl md:rounded-2xl shadow-2xl transition-all"></div>
+
+      <div id="playView" class="flex-1 flex flex-col z-10 min-h-0 w-full relative overflow-hidden">
+        
+        <div class="px-3 md:px-10 pt-1 flex-[0.65] flex flex-col min-h-0 overflow-hidden">
+          <div class="flex items-center justify-between mb-2 shrink-0">
+            <div class="bg-white/80 backdrop-blur rounded-xl md:rounded-2xl shadow p-1 flex items-center">
+              <span class="pl-2 pr-1 md:pl-3 md:pr-2 text-slate-500 font-bold text-sm md:text-base">文字：</span>
+              <button data-size="S" class="size-btn px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-100 transition-colors">小</button> 
+              <button data-size="M" class="size-btn px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-base font-bold text-slate-700 hover:bg-slate-100 transition-colors">中</button> 
+              <button data-size="L" class="size-btn px-2 py-1 md:px-3 md:py-1.5 rounded-lg text-lg font-extrabold text-slate-700 hover:bg-slate-100 transition-colors">大</button>
+            </div>
+            <button id="resetBtn" class="px-3 py-1.5 md:px-5 md:py-2 rounded-xl md:rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-base md:text-xl font-extrabold shadow-lg active:scale-[0.98] transition-transform"> 🔄 重玩 </button>
+          </div>
+          <div id="zonesArea" class="w-full flex-1 min-h-0 grid gap-2 md:gap-4 mb-2 overflow-hidden"></div>
+        </div>
+
+        <div class="flex-[0.35] min-h-0 bg-white/70 backdrop-blur border-t border-white/60 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] relative shrink-0 rounded-t-3xl md:rounded-t-[3rem] overflow-hidden flex flex-col">
+          <div class="flex-1 px-2 py-2 md:px-6 md:py-4 overflow-hidden flex items-center justify-center">
+            <div id="itemsTrayInner" class="grid gap-1.5 md:gap-3 w-full h-full overflow-hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="adminView" class="hidden flex-1 z-20 overflow-hidden w-full relative">
+        <div class="absolute inset-0 px-3 md:px-10 py-4 md:py-8 w-full h-full flex flex-col md:grid md:grid-cols-[280px_1fr] gap-4 md:gap-6 overflow-hidden">
+          <div class="shrink-0 md:h-full bg-white/80 backdrop-blur rounded-xl md:rounded-2xl border border-white/60 shadow p-3 md:p-4 overflow-x-auto flex flex-row md:flex-col gap-2 md:gap-0 no-scrollbar">
+            <div class="hidden md:block text-2xl font-extrabold text-slate-800 mb-3">CMS 控制台</div>
+            <nav class="flex md:block w-full gap-2 md:space-y-2">
+              <button data-admin-section="zones" class="admin-nav whitespace-nowrap text-sm md:text-base w-full text-center md:text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-xl font-bold bg-sky-100 text-sky-800 transition-colors">分類設定</button> 
+              <button data-admin-section="items" class="admin-nav whitespace-nowrap text-sm md:text-base w-full text-center md:text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-xl font-bold hover:bg-slate-100 transition-colors">項目設定</button> 
+              <button data-admin-section="settings" class="admin-nav whitespace-nowrap text-sm md:text-base w-full text-center md:text-left px-3 py-2 md:px-4 md:py-3 rounded-lg md:rounded-xl font-bold hover:bg-slate-100 transition-colors">系統與雲端</button>
+            </nav>
+          </div>
+          <div class="flex-1 md:h-full bg-white/70 backdrop-blur rounded-xl md:rounded-2xl border border-white/60 shadow p-4 md:p-5 overflow-y-auto no-scrollbar">
+            <section id="cmsZones" class="cms-section">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl md:text-3xl font-extrabold text-sky-700">分類區管理</h2>
+                <button id="addZone" class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm md:text-lg font-bold shadow transition-colors">+ 新增分類</button>
+              </div>
+              <div id="zonesList" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+            </section>
+            <section id="cmsItems" class="cms-section hidden">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl md:text-3xl font-extrabold text-fuchsia-700">項目管理</h2>
+                <button id="addItem" class="px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl bg-fuchsia-500 hover:bg-fuchsia-600 text-white text-sm md:text-lg font-bold shadow transition-colors">+ 新增項目</button>
+              </div>
+              <div id="itemsList" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+            </section>
+            <section id="cmsSettings" class="cms-section hidden space-y-4 md:space-y-6">
+              <div class="bg-white rounded-xl border p-4 md:p-6 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">一般設定</h3>
+                <div class="flex flex-col md:flex-row md:items-center gap-2">
+                  <label class="text-base font-bold text-slate-700 shrink-0">遊戲名稱：</label>
+                  <input id="titleInput" type="text" class="flex-1 max-w-md border border-slate-300 focus:border-sky-500 outline-none rounded-lg p-2 text-base font-bold transition-colors">
+                </div>
+              </div>
+              
+              <div class="bg-sky-50 rounded-xl border border-sky-200 p-4 shadow-sm">
+                <h3 class="text-lg font-bold text-sky-800 mb-4 flex items-center gap-2">☁️ GitHub 雲端題庫快速載入</h3>
+                
+                <div class="flex flex-col gap-3 mb-3">
+                  <div class="flex flex-col md:flex-row items-center gap-2">
+                    <input id="ghOwnerInput" type="text" placeholder="GitHub 帳號 (例如: username)" class="w-full md:w-1/3 border border-sky-300 focus:border-sky-500 outline-none rounded-lg p-2 text-base font-bold text-slate-700 transition-colors">
+                    <span class="text-slate-500 font-bold hidden md:inline">/</span>
+                    <input id="ghRepoInput" type="text" placeholder="儲存庫名稱 (例如: repo-name)" class="w-full md:w-1/3 border border-sky-300 focus:border-sky-500 outline-none rounded-lg p-2 text-base font-bold text-slate-700 transition-colors">
+                    <button id="ghFetchBtn" class="w-full md:w-auto px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-600 text-white font-bold shadow transition-colors whitespace-nowrap">🔍 取得題庫清單</button>
+                  </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center gap-3">
+                  <select id="cloudImportSelect" class="w-full border border-sky-300 outline-none rounded-lg p-2 text-base font-bold text-slate-700 cursor-pointer hover:bg-white transition-colors shadow-inner" disabled>
+                    <option value="">-- 請先輸入帳號與儲存庫並點擊「取得題庫清單」 --</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl border p-4 shadow-sm">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">資料備份與重置</h3>
+                <div class="flex flex-col md:flex-row gap-3">
+                  <button id="exportBtn" class="px-4 py-2 rounded-lg bg-emerald-500 text-white font-bold hover:bg-emerald-600 shadow transition-colors text-center">📥 下載設定檔</button>
+                  <label class="px-4 py-2 rounded-lg bg-slate-200 text-slate-700 font-bold hover:bg-slate-300 shadow cursor-pointer transition-colors text-center relative">
+                    <span id="importText">📤 匯入設定檔</span>
+                    <input id="importInput" type="file" accept=".json,application/json" class="hidden">
+                  </label>
+                  <button id="clearAllBtn" class="px-4 py-2 rounded-lg bg-rose-500 text-white font-bold hover:bg-rose-600 shadow md:ml-auto transition-colors text-center">⚠️ 清除所有資料</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div id="finishModal" class="hidden absolute inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+       <div class="bg-white rounded-[2rem] shadow-2xl p-6 md:p-10 w-full max-w-2xl text-center transform transition-transform duration-300 scale-100">
+        <div class="text-3xl md:text-5xl font-extrabold text-emerald-600 mb-4 md:mb-6">🎉 恭喜過關！</div>
+        <div class="text-xl md:text-3xl text-slate-700 mb-6 font-bold">
+          得分：<span id="finalScore" class="text-fuchsia-600">0</span>　
+          時間：<span id="finalTime" class="text-sky-600">00:00</span>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-6">
+          <button id="playAgain" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xl font-extrabold shadow-lg transition-transform hover:scale-105">再玩一次</button> 
+          <button id="closeModal" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-lg font-bold shadow transition-colors">關閉</button>
+        </div>
+       </div>
+      </div>
+
+      <div id="confetti" class="pointer-events-none absolute inset-0 overflow-hidden z-[65]"></div>
+    </div>
+  </div>
+
+  <script>
+    // ===== 1. 基礎工具與常數 =====
+    const $ = (s, c=document) => c.querySelector(s);
+    const $$ = (s, c=document) => Array.from(c.querySelectorAll(s));
+    const uid = () => 'id_' + Math.random().toString(36).slice(2, 9);
+    
+    const LS_KEY = 'wtkw_config_v2';
+    const LS_STATE = 'wtkw_state_v2';
+
+    const GAME_RULES = {
+      SCORE_PER_ITEM: 10,
+      MSG_WRONG: '再試一次！'
+    };
+    function sampleSVG(emoji, bg) {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='150'><rect rx='24' ry='24' width='100%' height='100%' fill='${bg}'/><text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' font-size='72'>${emoji}</text></svg>`;
+      return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
+
+    const defaultConfig = {
+      gameTitle: '【文特知識王】',
+      textSize: 'L',
+      zones: [
+        { id: uid(), name: '水果', imageData: sampleSVG('🍎', '#ff7a7a') },
+        { id: uid(), name: '動物', imageData: sampleSVG('🐶', '#7ad3ff') },
+        { id: uid(), name: '交通', imageData: sampleSVG('🚗', '#ffd166') },
+      ],
+      items: [
+        { id: uid(), name: '蘋果', imageData: sampleSVG('🍎', '#ff7a7a'), correctZoneId: null },
+        { id: uid(), name: '狗狗', imageData: sampleSVG('🐶', '#7ad3ff'), correctZoneId: null },
+        { id: uid(), name: '小汽車', imageData: sampleSVG('🚗', '#ffd166'), correctZoneId: null },
+      ]
+    };
+    const defaultState = { mode: 'play', score: 0, locked: {}, placements: {}, timerStart: null, elapsed: 0, finished: false };
+    function saveConfig(forceResetState = false) { 
+      localStorage.setItem(LS_KEY, JSON.stringify(config)); 
+      showSavedPulse();
+      if (forceResetState) { state = structuredClone(defaultState);
+      saveState(); }
+    }
+    function saveState() { localStorage.setItem(LS_STATE, JSON.stringify(state)); }
+    function loadAll() {
+      let conf = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      if (!conf) conf = structuredClone(defaultConfig);
+      let st = JSON.parse(localStorage.getItem(LS_STATE) || 'null');
+      if (!st) st = structuredClone(defaultState);
+      return { conf, st };
+    }
+
+    let { conf: config, st: state } = loadAll();
+    function compressImage(base64Str, maxWidth, maxHeight, callback) {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width, height = img.height;
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width *= ratio; height *= ratio;
         }
-        #gameContainer {
-            position: relative;
-            border: 8px solid white;
-            border-radius: 20px;
-            background-color: #fff;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            overflow: hidden;
-            min-height: 300px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #bgImage {
-            max-width: 100%;
-            max-height: 55vh;
-            object-fit: contain;
-            display: none;
-            user-select: none;
-            -webkit-user-drag: none;
-            border-radius: 12px 12px 0 0;
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        callback(canvas.toDataURL('image/webp', 0.8));
+      };
+      img.src = base64Str;
+    }
+
+    function loadImageFile(input, cb) {
+      const f = input.files[0];
+      if(!f) return;
+      const fr = new FileReader();
+      fr.onload = (e) => { compressImage(e.target.result, 400, 400, cb); };
+      fr.readAsDataURL(f);
+    }
+
+    // ===== 2. 核心 UI 渲染與動態計算網格 =====
+    function applyGameTitle() {
+      $('#mainTitle').textContent = config.gameTitle || '【文特知識王】';
+      document.title = (config.gameTitle || '【文特知識王】');
+    }
+
+    function renderPlay() {
+      applyTextSize(config.textSize);
+      applyGameTitle();
+      updateScoreUI();
+      $('#timer').textContent = formatTime(getElapsed());
+
+      const zonesArea = $('#zonesArea');
+      zonesArea.innerHTML = '';
+      if (config.zones.length === 0) {
+        zonesArea.innerHTML = `<div class="w-full h-full flex items-center justify-center text-slate-400 font-bold text-xl md:text-3xl">目前無內容，請至後台設定。</div>`;
+        return;
+      }
+
+      // --- [動態縮放 1] 分類區網格佈局計算 ---
+      const cols = config.zones.length;
+      let gridCols = cols > 3 ? Math.ceil(cols / 2) : cols;
+      let gridRows = cols > 3 ? 2 : 1;
+      if (cols === 0) { gridCols = 1; gridRows = 1; }
+      zonesArea.style.gridTemplateColumns = `repeat(${gridCols}, minmax(0, 1fr))`;
+      zonesArea.style.gridTemplateRows = `repeat(${gridRows}, minmax(0, 1fr))`;
+      config.zones.forEach(z => {
+        const el = document.createElement('div');
+        el.className = 'zone bg-white/85 rounded-xl md:rounded-[2rem] border-2 md:border-4 border-white shadow-lg p-1 md:p-3 flex flex-col min-h-0 h-full overflow-hidden';
+        el.dataset.zoneId = z.id;
+        
+        // --- [動態縮放 2] 每個分類內部的放置區網格計算 ---
+        const itemsForZone = config.items.filter(it => it.correctZoneId === z.id).length || 1;
+        let dropCols = Math.ceil(Math.sqrt(itemsForZone));
+        let dropRows = Math.ceil(itemsForZone / dropCols);
+
+        el.innerHTML = `
+          <div class="flex items-center gap-1.5 md:gap-3 shrink-0 h-1/4 min-h-[30px] max-h-[60px]">
+            <div class="h-full aspect-square overflow-hidden rounded-lg bg-white border shrink-0 flex items-center justify-center p-0.5 md:p-1">
+              <img src="${z.imageData || ''}" class="max-w-full max-h-full object-contain"/>
+            </div>
+            <div class="zone-title text-slate-800 font-extrabold text-left leading-tight w-full truncate">${z.name}</div>
+          </div>
+          <div class="mt-1.5 flex-1 min-h-0 rounded-lg md:rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/70 p-1 grid gap-1 overflow-hidden" data-zone-drop style="grid-template-columns: repeat(${dropCols}, minmax(0, 1fr)); grid-template-rows: repeat(${dropRows}, minmax(0, 1fr));"></div>
+        `;
+        zonesArea.appendChild(el);
+      });
+
+      const activeItems = config.items.filter(item => config.zones.find(z => z.id === item.correctZoneId));
+      
+      // --- [動態縮放 3] 底部托盤的總項目網格計算 ---
+      const totalItems = activeItems.length || 1;
+      let trayCols = Math.ceil(Math.sqrt(totalItems * 2.5)); 
+      let trayRows = Math.ceil(totalItems / trayCols);
+      if(trayCols === 0) trayCols = 1; if(trayRows === 0) trayRows = 1;
+
+      const trayInner = $('#itemsTrayInner');
+      trayInner.style.gridTemplateColumns = `repeat(${trayCols}, minmax(0, 1fr))`;
+      trayInner.style.gridTemplateRows = `repeat(${trayRows}, minmax(0, 1fr))`;
+      trayInner.innerHTML = '';
+
+      config.items.forEach(item => {
+        if (!config.zones.find(z => z.id === item.correctZoneId)) return;
+        if (state.locked[item.id] && state.placements[item.id]) {
+          placeItemInZone(item, state.placements[item.id], false);
+          return;
         }
         
-        #backToAdminBtn {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 50;
-            display: none;
-            background: white;
-            color: #FF9A9E;
-            border: 3px solid #FF9A9E;
-            box-shadow: 0 4px 0 #FF9A9E;
-        }
+        const card = document.createElement('div');
+        card.className = 'item-card bg-white rounded-lg border border-slate-200 shadow p-1 flex flex-col items-center justify-center gap-1 cursor-grab active:cursor-grabbing hover:scale-[1.02] transition-transform select-none w-full h-full min-h-0 min-w-0';
+        card.dataset.itemId = item.id;
+        card.innerHTML = `
+          <div class="flex-1 min-h-0 w-full overflow-hidden rounded-md bg-slate-50 border pointer-events-none flex items-center justify-center p-0.5 md:p-1">
+            <img src="${item.imageData || ''}" class="max-w-full max-h-full object-contain"/>
+          </div>
+          <div class="item-name text-slate-800 font-extrabold pointer-events-none text-center leading-none w-full truncate px-1 shrink-0 h-[1.2em]">
+            ${item.name}
+          </div>
+        `;
+        trayInner.appendChild(card);
+        makeDraggable(card, item);
+      });
+      checkFinish();
+    }
 
-        /* 標籤樣式 */
-        .text-label {
-            position: absolute;
-            background: white;
-            border: 3px solid var(--primary-color);
-            padding: 10px 20px;
-            border-radius: 50px;
-            cursor: grab;
-            font-weight: bold;
-            font-size: 1.2rem;
-            color: var(--primary-dark);
-            transform: translate(-50%, -50%);
-            z-index: 10;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-            touch-action: none;
+    function handleItemDrop(item, card, zone, point) {
+      if (zone) {
+        const zoneId = zone.dataset.zoneId;
+        if (item.correctZoneId === zoneId) {
+          state.score += GAME_RULES.SCORE_PER_ITEM;
+          state.locked[item.id] = true;
+          state.placements[item.id] = zoneId;
+          updateScoreUI();
+          placeItemInZone(item, zoneId, true);
+          celebrateAt(point.x, point.y);
+          card.style.visibility = 'hidden';
+          checkFinish();
+        } else {
+          showToast(GAME_RULES.MSG_WRONG);
+          shakeCard(card);
         }
-        .text-label.correct {
-            border-color: var(--success-dark);
-            background: var(--success-color);
-            color: #1a634e;
-            cursor: default;
-            animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes pop {
-            0% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-50%, -50%) scale(1.2); }
-            100% { transform: translate(-50%, -50%) scale(1); }
-        }
-        .del-btn {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ff4757;
-            color: white;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 14px;
-            border: 2px solid white;
-        }
+      } else {
+        shakeCard(card);
+      }
+      saveState();
+    }
 
-        /* 待選區池子 */
-        #poolArea {
-            width: 100%;
-            height: 180px;
-            background: #FFF5D1;
-            border-top: 6px dashed var(--accent-color);
-            display: none;
-            position: relative;
-            padding-top: 45px; 
-            border-radius: 0 0 12px 12px;
-        }
-        .pool-title {
-            text-align: center;
-            color: #D39B22;
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: bold;
-            background: white;
-            display: inline-block;
-            padding: 5px 20px;
-            border-radius: 20px;
-            position: absolute;
-            top: 10px; 
-            left: 50%;
-            transform: translateX(-50%);
-            border: 3px solid var(--accent-color);
-            white-space: nowrap;
-            z-index: 5;
-        }
-
-        #winOverlay {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            z-index: 100;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-        }
-        #winOverlay h2 { font-size: 3.5rem; color: var(--success-dark); margin-bottom: 30px; animation: bounce 1s infinite alternate; }
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
-        .hidden { display: none !important; }
-    </style>
-</head>
-<body>
-
-    <h1>✨ 將文字擺放至正確位置 ✨</h1>
-
-    <div class="admin-panel" id="adminPanel">
-        <div class="control-group">
-            <strong>🛠️ 1. 老師設定區：</strong>
-            <br>
-            <input type="file" id="imageUpload" accept="image/*">
-            <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔 (JSON)</button>
-            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
-            <input type="file" id="importFile" class="hidden" accept=".json">
-            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增標籤。(進度將自動儲存)</p>
+    function placeItemInZone(item, zoneId, animate = true) {
+      const zone = $(`.zone[data-zone-id="${zoneId}"]`);
+      if (!zone) return;
+      const drop = zone.querySelector('[data-zone-drop]');
+      const mini = document.createElement('div');
+      mini.className = `bg-gradient-to-br from-white to-emerald-50 rounded-md md:rounded-lg border border-emerald-200 shadow-sm p-0.5 md:p-1 flex flex-col items-center justify-center gap-0.5 ${animate ? 'correct-anim' : ''} w-full h-full min-h-0 min-w-0 overflow-hidden`;
+      mini.innerHTML = `
+        <div class="flex-1 w-full min-h-0 overflow-hidden rounded bg-white border shrink flex items-center justify-center p-0.5">
+          <img src="${item.imageData || ''}" class="max-w-full max-h-full object-contain"/>
         </div>
+        <div class="text-emerald-700 font-extrabold text-[10px] sm:text-xs leading-none text-center truncate w-full shrink-0 mt-0.5">${item.name}</div>
+      `;
+      drop.appendChild(mini);
+      if(animate) { zone.classList.remove('zone-glow-anim'); void zone.offsetWidth; zone.classList.add('zone-glow-anim'); }
+    }
 
-        <div class="control-group">
-            <strong>☁️ 2. 雲端題庫匯入：</strong>
-            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 直接從下拉選單選擇您要玩的題庫：</p>
-            
-            <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <input type="text" id="githubRepo" value="" placeholder="您的 GitHub 帳號/倉庫名" style="width:200px;">
-                <button class="btn btn-outline" onclick="loadGithubList(false)">🔄 重新整理列表</button>
-                
-                <select id="githubFileList" onchange="importFromGithub(this.value)" style="padding: 10px 15px; font-size: 1.1rem; border: 3px solid var(--accent-color); border-radius: 10px; background: #fff; cursor: pointer; min-width: 250px;">
-                    <option value="">-- 尚未讀取題庫 --</option>
-                </select>
-            </div>
-        </div>
+    function updateScoreUI() {
+      const scoreEl = $('#score');
+      scoreEl.textContent = state.score;
+      scoreEl.parentElement.classList.add('scale-110', 'text-fuchsia-600');
+      setTimeout(() => scoreEl.parentElement.classList.remove('scale-110', 'text-fuchsia-600'), 200);
+    }
 
-        <div id="gameActions" style="text-align: center; margin-top: 15px;">
-            <button id="startBtn" class="btn btn-success" style="display:none;">🚀 開始遊戲！</button>
-        </div>
-    </div>
-
-    <div id="gameWrapper">
-        <div id="gameContainer">
-            <button id="backToAdminBtn" class="btn" onclick="backToAdmin()">⚙️ 回設定</button>
-            <img id="bgImage">
-            <div id="poolArea">
-                <p class="pool-title">🧸 待選區：請把我們拖到正確的圖案上！</p>
-            </div>
-            
-            <div id="winOverlay">
-                <h2>🎉 完成了，很棒！ 🎉</h2>
-                <button class="btn btn-primary" onclick="replayGame()" style="font-size:1.8rem; padding:15px 40px; box-shadow: 0 8px 0 var(--primary-dark);">再來一次 🔄</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const bgImage = document.getElementById('bgImage');
-        const gameContainer = document.getElementById('gameContainer');
-        const poolArea = document.getElementById('poolArea');
-        const startBtn = document.getElementById('startBtn');
-        const winOverlay = document.getElementById('winOverlay');
-        const backToAdminBtn = document.getElementById('backToAdminBtn');
+    // ===== 3. 優化 Pointer Events 拖曳引擎 =====
+    function makeDraggable(card, item) {
+      let dragging = false, ghost = null, startX = 0, startY = 0, currentX = 0, currentY = 0, ticking = false;
+      const onDown = (e) => {
+        if (e.target.tagName.toLowerCase() === 'button') return;
+        dragging = true;
+        const pt = { x: e.clientX, y: e.clientY };
+        const rect = card.getBoundingClientRect();
+        startX = pt.x;
+        startY = pt.y; currentX = pt.x; currentY = pt.y;
         
-        let config = { imageData: null, labels: [] };
-        let isPlaying = false;
-        let hasWon = false;
+        ghost = card.cloneNode(true);
+        ghost.classList.remove('transition-transform', 'hover:scale-[1.02]');
+        ghost.style.transition = 'none';
+        ghost.classList.add('dragging', 'ring-4', 'ring-fuchsia-400');
+        ghost.style.left = rect.left + 'px'; ghost.style.top = rect.top + 'px';
+        ghost.style.width = rect.width + 'px'; ghost.style.height = rect.height + 'px';
+        document.body.appendChild(ghost); 
+        card.style.opacity = '0.1';
+        
+        window.addEventListener('pointermove', onMove, {passive: false});
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+        updateGhost();
+      };
+      const updateGhost = () => {
+        if (!dragging || !ghost) return;
+        const dx = currentX - startX, dy = currentY - startY;
+        ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.08) rotate(-4deg)`;
+        ticking = false; 
+      };
+      
+      const onMove = (e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        currentX = e.clientX; currentY = e.clientY;
+        if (!ticking) { requestAnimationFrame(updateGhost);
+        ticking = true;
+        }
+      };
+      const onUp = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        
+        const pt = { x: e.clientX, y: e.clientY };
+        const zone = getZoneUnderPoint(pt.x, pt.y);
+        handleItemDrop(item, card, zone, pt);
+        
+        if (ghost) { ghost.remove(); ghost = null; }
+        if (card.style.visibility !== 'hidden') { card.style.opacity = '1'; }
+      };
+      card.addEventListener('pointerdown', onDown);
+    }
 
-        // --- 自動儲存 ---
-        function autoSave() {
-            if (!config.imageData && config.labels.length === 0) return;
-            const dataToSave = {
-                imageData: config.imageData,
-                labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY }))
-            };
-            localStorage.setItem('cuteDragGameAutoSave', JSON.stringify(dataToSave));
+    function getZoneUnderPoint(x, y) {
+      return $$('.zone').find(z => {
+        const r = z.getBoundingClientRect();
+        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      });
+    }
+    function shakeCard(card) { card.classList.remove('wrong-anim'); void card.offsetWidth; card.classList.add('wrong-anim'); }
+    function showToast(msg) {
+      const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
+      t.style.transform = 'translate(-50%, 20px)'; t.style.opacity = '0';
+      requestAnimationFrame(() => { t.style.transition = 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; t.style.transform = 'translate(-50%, 0)'; t.style.opacity = '1'; });
+      if(t.hideTimeout) clearTimeout(t.hideTimeout);
+      t.hideTimeout = setTimeout(() => {
+        t.style.transform = 'translate(-50%, -20px)'; t.style.opacity = '0';
+        setTimeout(() => t.classList.add('hidden'), 300);
+      }, 1500);
+    }
+
+    // ===== 4. 計時與完成 =====
+    let timerInt = null;
+    function startTimer() {
+      if (timerInt) return;
+      if (!state.timerStart) state.timerStart = Date.now() - state.elapsed;
+      timerInt = setInterval(() => { $('#timer').textContent = formatTime(getElapsed()); }, 500);
+    }
+    function stopTimer() { if(timerInt) clearInterval(timerInt);
+    timerInt = null; if(state.timerStart) state.elapsed = getElapsed(); }
+    function getElapsed() { return state.timerStart ?
+    Date.now() - state.timerStart : state.elapsed; }
+    function formatTime(ms) {
+      const sec = Math.floor(ms/1000);
+      return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    }
+    function checkFinish() {
+      const activeItems = config.items.filter(it => config.zones.some(z => z.id === it.correctZoneId));
+      const total = activeItems.length, done = Object.keys(state.locked).length;
+      if (total > 0 && done >= total && !state.finished) {
+        state.finished = true;
+        stopTimer();
+        $('#finalScore').textContent = state.score; $('#finalTime').textContent = formatTime(getElapsed());
+        $('#finishModal').classList.remove('hidden'); saveState();
+      }
+    }
+    function resetGame() {
+      state = structuredClone(defaultState);
+      stopTimer();
+      $('#timer').textContent = '00:00'; $('#score').textContent = '0';
+      $('#finishModal').classList.add('hidden'); renderPlay(); startTimer(); saveState();
+    }
+    
+    // 微調字體大小，配合縮放畫面
+    function applyTextSize(size) {
+      config.textSize = size;
+      const map = { 
+        'S':['text-[10px] sm:text-xs md:text-sm lg:text-base', 'text-xs sm:text-sm md:text-base lg:text-lg'], 
+        'M':['text-xs sm:text-sm md:text-base lg:text-lg', 'text-sm sm:text-base md:text-lg lg:text-xl'], 
+        'L':['text-sm sm:text-base md:text-lg lg:text-xl', 'text-base sm:text-lg md:text-xl lg:text-2xl'] 
+      };
+      const [itemCls, titleCls] = map[size];
+      $$('.item-name').forEach(e => { e.className = `item-name font-extrabold text-slate-800 pointer-events-none text-center leading-none w-full truncate px-1 shrink-0 h-[1.2em] ${itemCls}`; });
+      $$('.zone-title').forEach(e => { e.className = `zone-title font-extrabold text-slate-800 text-left leading-tight w-full truncate ${titleCls}`; });
+      $$('.size-btn').forEach(b => { b.classList.toggle('bg-slate-900', b.dataset.size === size); b.classList.toggle('text-white', b.dataset.size === size); });
+      saveConfig();
+    }
+
+    // ===== 5. CMS 管理 =====
+    function renderCMS() { renderCMSZones(); renderCMSItems();
+    $('#titleInput').value = config.gameTitle; }
+    function renderCMSZones() {
+      const list = $('#zonesList');
+      list.innerHTML = '';
+      config.zones.forEach(z => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 md:gap-3 bg-white p-2 md:p-3 rounded-xl border shadow-sm transition-shadow hover:shadow-md min-w-0';
+        div.innerHTML = `
+          <div class="w-12 h-12 md:w-16 md:h-16 rounded object-contain p-1 bg-gray-100 shrink-0 border flex items-center justify-center"><img src="${z.imageData}" class="max-w-full max-h-full object-contain"></div>
+          <div class="flex-1 min-w-0"><input value="${z.name}" placeholder="名稱" class="z-name w-full border border-slate-200 rounded p-1.5 md:p-2 text-sm md:text-base lg:text-lg font-bold"></div>
+          <div class="flex flex-col gap-1 md:gap-2 shrink-0">
+             <label class="text-[10px] md:text-xs lg:text-sm bg-sky-100 text-sky-700 px-2 py-1 lg:px-4 lg:py-2 rounded cursor-pointer text-center font-bold">換圖<input type="file" class="hidden z-img" accept="image/*"></label>
+             <button class="z-del text-[10px] md:text-xs lg:text-sm bg-rose-100 text-rose-700 px-2 py-1 lg:px-4 lg:py-2 rounded font-bold">刪除</button>
+          </div>`;
+        div.querySelector('.z-name').oninput = (e) => { z.name = e.target.value || '未命名'; saveConfig(true); };
+        div.querySelector('.z-img').onchange = (e) => loadImageFile(e.target, d => { z.imageData = d; saveConfig(true); renderCMSZones(); });
+        div.querySelector('.z-del').onclick = () => {
+          if(confirm(`確定刪除「${z.name}」？`)) {
+             config.zones = config.zones.filter(x => x.id !== z.id);
+             config.items.forEach(it => { if (it.correctZoneId === z.id) it.correctZoneId = null; });
+             saveConfig(true); renderCMS();
+          }
+        };
+        list.appendChild(div);
+      });
+    }
+    function renderCMSItems() {
+      const list = $('#itemsList'); list.innerHTML = '';
+      config.items.forEach(it => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center gap-2 md:gap-3 bg-white p-2 md:p-3 rounded-xl border shadow-sm transition-shadow hover:shadow-md min-w-0';
+        let opts = config.zones.map(z => `<option value="${z.id}" ${z.id===it.correctZoneId?'selected':''}>${z.name}</option>`).join('');
+        div.innerHTML = `
+          <div class="w-12 h-12 md:w-16 md:h-16 rounded object-contain p-1 bg-gray-100 shrink-0 border flex items-center justify-center"><img src="${it.imageData}" class="max-w-full max-h-full object-contain"></div>
+          <div class="flex-1 grid gap-1 md:gap-2 min-w-0">
+            <input value="${it.name}" placeholder="名稱" class="i-name w-full border border-slate-200 rounded p-1 md:p-1.5 lg:p-2 text-sm md:text-base lg:text-lg font-bold">
+            <select class="i-zone w-full border border-slate-200 rounded p-1 md:p-1.5 lg:p-2 text-xs md:text-sm lg:text-base font-bold text-slate-700">${opts}</select>
+          </div>
+          <div class="flex flex-col gap-1 md:gap-2 shrink-0">
+             <label class="text-[10px] md:text-xs lg:text-sm bg-fuchsia-100 text-fuchsia-700 px-2 py-1 lg:px-4 lg:py-2 rounded cursor-pointer text-center font-bold">換圖<input type="file" class="hidden i-img" accept="image/*"></label>
+             <button class="i-del text-[10px] md:text-xs lg:text-sm bg-rose-100 text-rose-700 px-2 py-1 lg:px-4 lg:py-2 rounded font-bold">刪除</button>
+          </div>`;
+        div.querySelector('.i-name').oninput = (e) => { it.name = e.target.value || '未命名'; saveConfig(true); };
+        div.querySelector('.i-zone').onchange = (e) => { it.correctZoneId = e.target.value;
+        saveConfig(true); };
+        div.querySelector('.i-img').onchange = (e) => loadImageFile(e.target, d => { it.imageData = d; saveConfig(true); renderCMSItems(); });
+        div.querySelector('.i-del').onclick = () => { if(confirm(`確定刪除項目？`)) { config.items = config.items.filter(x => x.id !== it.id); saveConfig(true); renderCMSItems(); } };
+        list.appendChild(div);
+      });
+    }
+
+    function loadTextFile(input, cb) {
+      const f = input.files[0]; if(!f) return;
+      const fr = new FileReader(); fr.onload = (e) => cb(e.target.result); fr.readAsText(f);
+    }
+    function showSavedPulse() { $('#saveIndicator').style.opacity = '1'; setTimeout(() => $('#saveIndicator').style.opacity = '0', 800);
+    }
+    function celebrateAt(x, y) {
+      const container = $('#confetti');
+      for(let i=0; i<15; i++) {
+        const d = document.createElement('div');
+        d.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:12px;height:12px;background:hsl(${Math.random()*360},70%,50%);border-radius:2px;pointer-events:none;`;
+        const angle = Math.random() * Math.PI * 2, velocity = 50 + Math.random() * 100;
+        const tx = Math.cos(angle) * velocity, ty = Math.sin(angle) * velocity - 150;
+        d.animate([ {transform:'translate(0,0) rotate(0deg)', opacity:1}, {transform:`translate(${tx}px, ${ty}px) rotate(${Math.random()*360+180}deg)`, opacity:0} ], {duration: 800 + Math.random()*400, easing:'ease-out'}).onfinish = () => d.remove();
+        container.appendChild(d);
+      }
+    }
+
+    // ===== 6. 事件綁定與雲端匯入 =====
+    document.addEventListener('DOMContentLoaded', () => {
+      applyGameTitle();
+      $('#titleInput').oninput = (e) => { config.gameTitle = e.target.value || '【文特知識王】'; applyGameTitle(); saveConfig(); };
+      $('#tabPlay').onclick = () => { state.mode = 'play'; $('#playView').classList.remove('hidden'); $('#adminView').classList.add('hidden'); $('#tabPlay').dataset.active = 'true'; $('#tabAdmin').dataset.active = 'false'; $$('.play-only').forEach(e=>e.classList.remove('hidden')); $$('.admin-only').forEach(e=>e.classList.add('hidden')); renderPlay(); startTimer(); };
+      $('#tabAdmin').onclick = () => { state.mode = 'admin'; $('#playView').classList.add('hidden'); $('#adminView').classList.remove('hidden'); $('#tabPlay').dataset.active = 'false'; $('#tabAdmin').dataset.active = 'true'; $$('.play-only').forEach(e=>e.classList.add('hidden')); $$('.admin-only').forEach(e=>e.classList.remove('hidden')); stopTimer(); renderCMS(); };
+     
+      $$('.admin-nav').forEach(btn => btn.onclick = () => {
+        $$('.cms-section').forEach(s => s.classList.add('hidden'));
+        $(`#cms${btn.dataset.adminSection.charAt(0).toUpperCase()+btn.dataset.adminSection.slice(1)}`).classList.remove('hidden');
+        $$('.admin-nav').forEach(b => { b.classList.remove('bg-sky-100','text-sky-800'); if(b===btn) b.classList.add('bg-sky-100','text-sky-800'); });
+      });
+      $('#resetBtn').onclick = resetGame; $('#playAgain').onclick = resetGame; $('#closeModal').onclick = () => $('#finishModal').classList.add('hidden');
+      $$('.size-btn').forEach(b => b.onclick = () => applyTextSize(b.dataset.size));
+      $('#addZone').onclick = () => { config.zones.push({id:uid(), name:'新分類', imageData:''}); saveConfig(true); renderCMS(); };
+      $('#addItem').onclick = () => { if(config.zones.length === 0) { alert('請先新增分類！'); return; } config.items.push({id:uid(), name:'新項目', imageData:'', correctZoneId:config.zones[0]?.id}); saveConfig(true); renderCMS(); };
+      $('#clearAllBtn').onclick = () => { if(confirm('確定清除所有資料？')) { localStorage.clear(); location.reload(); } };
+      $('#exportBtn').onclick = () => { const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(config)], {type:'application/json'})); a.download = 'config.json'; a.click(); };
+      $('#importInput').onchange = (e) => {
+         loadTextFile(e.target, txt => { try { config = JSON.parse(txt); saveConfig(true); location.reload(); } catch(err){ alert('格式錯誤'); } });
+      };
+
+      // --- GitHub API 題庫清單抓取邏輯 ---
+      const savedOwner = localStorage.getItem('wtkw_gh_owner');
+      const savedRepo = localStorage.getItem('wtkw_gh_repo');
+      if(savedOwner) $('#ghOwnerInput').value = savedOwner;
+      if(savedRepo) $('#ghRepoInput').value = savedRepo;
+
+      $('#ghFetchBtn').onclick = async () => {
+        const owner = $('#ghOwnerInput').value.trim();
+        const repo = $('#ghRepoInput').value.trim();
+        const select = $('#cloudImportSelect');
+        
+        if (!owner || !repo) {
+          alert('請輸入 GitHub 帳號與儲存庫名稱！');
+          return;
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            // 1. 讀取本機自動儲存的進度
-            const savedData = localStorage.getItem('cuteDragGameAutoSave');
-            if (savedData) {
-                try { loadJsonToGame(savedData); } catch(e) { console.error("自動讀取失敗", e); }
-            }
-            
-            // 2. 如果預設有填寫 GitHub 倉庫名，載入網頁時自動抓取選單！
-            const repoInput = document.getElementById('githubRepo').value.trim();
-            if(repoInput !== "") {
-                loadGithubList(true); // true 代表靜默讀取，不跳出成功提示窗
-            }
-        });
+        select.innerHTML = '<option value="">⏳ 正在載入檔案清單...</option>';
+        select.disabled = true;
 
-        // --- 核心功能 ---
-        function addLabel(text, x, y) {
-            const label = document.createElement('div');
-            label.className = 'text-label';
-            label.innerText = text;
-            label.style.left = x + 'px';
-            label.style.top = y + 'px';
-            
-            const del = document.createElement('span');
-            del.className = 'del-btn';
-            del.innerHTML = '&times;';
-            del.onclick = (e) => {
-                e.stopPropagation();
-                if (isPlaying) return;
-                label.remove();
-                config.labels = config.labels.filter(l => l.el !== label);
-                checkStartReady();
-                autoSave();
-            };
-            label.appendChild(del);
+        try {
+          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/`);
+          if (!response.ok) throw new Error('找不到儲存庫或 API 限制');
+          
+          const data = await response.json();
+          const jsonFiles = data.filter(item => item.type === 'file' && item.name.endsWith('.json'));
 
-            gameContainer.appendChild(label);
-            const labelObj = { text, x, y, targetX: x, targetY: y, el: label, isCorrect: false };
-            config.labels.push(labelObj);
-            makeDraggable(labelObj);
-            checkStartReady();
-            autoSave();
+          if (jsonFiles.length === 0) {
+            select.innerHTML = '<option value="">⚠️ 該儲存庫中沒有找到 .json 檔案</option>';
+            return;
+          }
+
+          select.innerHTML = '<option value="">-- 請選擇要載入的題庫檔案 --</option>';
+          jsonFiles.forEach(file => {
+            const opt = document.createElement('option');
+            opt.value = file.download_url;
+            opt.textContent = file.name;
+            select.appendChild(opt);
+          });
+          select.disabled = false;
+          
+          localStorage.setItem('wtkw_gh_owner', owner);
+          localStorage.setItem('wtkw_gh_repo', repo);
+
+        } catch (error) {
+          alert('❌ 取得清單失敗，請檢查帳號、儲存庫名稱是否正確，或確認該儲存庫為公開(Public)狀態。');
+          console.error(error);
+          select.innerHTML = '<option value="">-- 取得清單失敗 --</option>';
         }
+      };
 
-        document.getElementById('imageUpload').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    bgImage.src = event.target.result;
-                    bgImage.style.display = 'block';
-                    config.imageData = event.target.result;
-                    autoSave();
-                    checkStartReady();
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+      // --- 選擇並載入指定的 JSON 題庫 ---
+      $('#cloudImportSelect').onchange = async (e) => {
+        const fileUrl = e.target.value;
+        if (!fileUrl) return;
+        
+        const filename = e.target.options[e.target.selectedIndex].text;
 
-        bgImage.addEventListener('click', (e) => {
-            if (isPlaying) return;
-            const rect = gameContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const text = prompt("📝 輸入名稱：");
-            if (text) addLabel(text.trim(), x, y);
-        });
-
-        function checkStartReady() {
-            startBtn.style.display = (config.imageData && config.labels.length > 0) ? 'inline-block' : 'none';
+        if (!confirm(`確定載入「${filename}」？\n目前的遊戲進度與設定將會被覆蓋！`)) { 
+          e.target.value = ""; 
+          return;
         }
-
-        function exportData() {
-            const data = { imageData: config.imageData, labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY })) };
-            const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = "game_config.json"; a.click();
+        
+        try {
+          const response = await fetch(fileUrl);
+          if (!response.ok) throw new Error('找不到檔案');
+          
+          const data = await response.json();
+          config = data; 
+          saveConfig(true); 
+          alert('✅ 雲端題庫載入成功！'); 
+          location.reload();
+        } catch (error) {
+          alert('❌ 載入失敗，請確認該檔案內容是正確的 JSON 格式。'); 
+          console.error(error); 
+          e.target.value = "";
         }
+      };
 
-        document.getElementById('importFile').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => loadJsonToGame(event.target.result);
-                reader.readAsText(file);
-            }
-        });
-
-        function loadJsonToGame(jsonStr) {
-            const data = JSON.parse(jsonStr);
-            config.labels.forEach(l => l.el.remove());
-            config.labels = [];
-            config.imageData = data.imageData;
-            bgImage.src = data.imageData;
-            bgImage.style.display = 'block';
-            data.labels.forEach(l => addLabel(l.text, l.x, l.y));
-            autoSave();
-        }
-
-        // --- GitHub 下拉選單讀取功能 ---
-        async function loadGithubList(isSilent = false) {
-            const repo = document.getElementById('githubRepo').value.trim();
-            const select = document.getElementById('githubFileList');
-            
-            if (!repo) {
-                if (!isSilent) alert("❌ 請先填寫您的 GitHub 帳號與倉庫名稱！");
-                return;
-            }
-            
-            try {
-                select.innerHTML = '<option value="">⏳ 題庫讀取中...</option>';
-                const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-                if (!res.ok) throw new Error("找不到該倉庫或權限不足");
-                
-                const files = await res.json();
-                select.innerHTML = '<option value="">-- 👇 請選擇題庫開始遊玩 --</option>';
-                
-                let count = 0;
-                files.filter(f => f.name.endsWith('.json')).forEach(f => {
-                    const opt = document.createElement('option');
-                    opt.value = f.download_url; 
-                    // 在選單中隱藏 .json 副檔名，讓畫面看起來更乾淨
-                    opt.innerText = f.name.replace('.json', ''); 
-                    select.appendChild(opt);
-                    count++;
-                });
-                
-                if (count > 0) {
-                    if (!isSilent) alert(`✅ 成功載入 ${count} 個題庫！`);
-                } else {
-                    select.innerHTML = '<option value="">-- 倉庫中沒有題庫 --</option>';
-                    if (!isSilent) alert("⚠️ 您的倉庫中沒有找到 .json 檔案喔。");
-                }
-            } catch (err) { 
-                select.innerHTML = '<option value="">-- 讀取失敗，請檢查倉庫 --</option>';
-                if (!isSilent) alert("❌ 讀取失敗，請確認倉庫路徑是否正確，以及是否設為公開 (Public)。"); 
-            }
-        }
-
-        async function importFromGithub(url) {
-            if (!url) return;
-            try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("網路請求失敗");
-                const text = await res.text();
-                loadJsonToGame(text);
-                
-                // 匯入成功後，將選單復原，方便下次可以選同一個題庫重新讀取
-                document.getElementById('githubFileList').value = ""; 
-            } catch(err) {
-                alert("❌ 匯入失敗，請確認網路連線。");
-                console.error(err);
-            }
-        }
-
-        // --- 遊戲邏輯 ---
-        startBtn.onclick = () => { startGameLogic(); };
-
-        function startGameLogic() {
-            isPlaying = true; hasWon = false;
-            document.getElementById('adminPanel').classList.add('hidden');
-            backToAdminBtn.style.display = 'block';
-            poolArea.style.display = 'block';
-            
-            const imgHeight = bgImage.offsetHeight;
-            gameContainer.style.height = (imgHeight + 180) + "px";
-            
-            config.labels.forEach((l) => {
-                l.el.querySelector('.del-btn').style.display = 'none';
-                l.isCorrect = false;
-                l.el.classList.remove('correct');
-                const randomX = Math.random() * (gameContainer.offsetWidth - 150) + 75;
-                const randomY = imgHeight + 100 + (Math.random() * 30 - 15);
-                l.el.style.left = randomX + 'px';
-                l.el.style.top = randomY + 'px';
-                l.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`;
-            });
-        }
-
-        function replayGame() { winOverlay.style.display = 'none'; startGameLogic(); }
-
-        function backToAdmin() {
-            isPlaying = false; hasWon = false;
-            winOverlay.style.display = 'none';
-            document.getElementById('adminPanel').classList.remove('hidden');
-            backToAdminBtn.style.display = 'none';
-            poolArea.style.display = 'none';
-            gameContainer.style.height = 'auto';
-            config.labels.forEach((l) => {
-                l.el.classList.remove('correct');
-                l.el.style.left = l.targetX + 'px';
-                l.el.style.top = l.targetY + 'px';
-                l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-                l.el.querySelector('.del-btn').style.display = 'flex';
-            });
-            autoSave();
-        }
-
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'zh-TW'; msg.rate = 0.9; window.speechSynthesis.speak(msg);
-            }
-        }
-
-        function makeDraggable(obj) {
-            const startDrag = (e) => {
-                if (obj.isCorrect && isPlaying) return;
-                if (isPlaying) { speak(obj.text); obj.el.style.transform = 'translate(-50%, -50%) scale(1.1)'; obj.el.style.zIndex = 100; }
-                if (e.cancelable) e.preventDefault();
-                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-                const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
-
-                const moveDrag = (e) => {
-                    e.preventDefault();
-                    const currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-                    const currentY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
-                    const rect = gameContainer.getBoundingClientRect();
-                    obj.el.style.left = (currentX - rect.left) + 'px';
-                    obj.el.style.top = (currentY - rect.top) + 'px';
-                };
-
-                const endDrag = () => {
-                    document.removeEventListener('mousemove', moveDrag); document.removeEventListener('mouseup', endDrag);
-                    document.removeEventListener('touchmove', moveDrag); document.removeEventListener('touchend', endDrag);
-                    if (isPlaying) { obj.el.style.zIndex = 10; obj.el.style.transform = 'translate(-50%, -50%) scale(1)'; checkMatch(obj); }
-                    else { obj.targetX = parseFloat(obj.el.style.left); obj.targetY = parseFloat(obj.el.style.top); autoSave(); }
-                };
-                document.addEventListener('mousemove', moveDrag, { passive: false }); document.addEventListener('mouseup', endDrag);
-                document.addEventListener('touchmove', moveDrag, { passive: false }); document.addEventListener('touchend', endDrag);
-            };
-            obj.el.addEventListener('mousedown', startDrag);
-            obj.el.addEventListener('touchstart', startDrag, { passive: false });
-        }
-
-        function checkMatch(obj) {
-            const dist = Math.sqrt(Math.pow(parseFloat(obj.el.style.left) - obj.targetX, 2) + Math.pow(parseFloat(obj.el.style.top) - obj.targetY, 2));
-            if (dist < 60) {
-                obj.el.style.left = obj.targetX + 'px'; obj.el.style.top = obj.targetY + 'px';
-                obj.el.classList.add('correct'); obj.isCorrect = true;
-                if (config.labels.every(l => l.isCorrect) && !hasWon) {
-                    hasWon = true; setTimeout(() => { winOverlay.style.display = 'flex'; speak("完成了，很棒!"); }, 500);
-                }
-            } else { obj.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`; }
-        }
-    </script>
-</body>
+      if(state.mode === 'play') $('#tabPlay').click(); else $('#tabAdmin').click();
+    });
+  </script>
+ </body>
 </html>

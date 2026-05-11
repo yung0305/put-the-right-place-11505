@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>將文字擺放至正確位置 - 可愛升級版</title>
+    <title>將物件擺放至正確位置 - 升級版</title>
     <style>
         :root {
             --primary-color: #FF9A9E;
@@ -142,12 +142,14 @@
             border-radius: 50px;
             cursor: grab;
             font-weight: bold;
-            font-size: 1.2rem;
             color: var(--primary-dark);
             transform: translate(-50%, -50%);
             z-index: 10;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
             touch-action: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .text-label.correct {
             border-color: var(--success-dark);
@@ -156,26 +158,51 @@
             cursor: default;
             animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        
+        .label-content {
+            pointer-events: none; /* 防止內容干擾拖曳 */
+        }
+        .label-content img {
+            -webkit-user-drag: none;
+            display: block;
+            border-radius: 12px;
+        }
+
         @keyframes pop {
             0% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.2); }
             100% { transform: translate(-50%, -50%) scale(1); }
         }
-        .del-btn {
+
+        /* 新增：編輯模式專用控制按鈕 */
+        .admin-controls {
             position: absolute;
-            top: -5px;
-            right: -5px;
-            background: #ff4757;
+            top: -15px;
+            right: -25px;
+            display: flex;
+            gap: 4px;
+            z-index: 20;
+        }
+        #gameContainer.playing .admin-controls {
+            display: none !important; /* 遊戲進行中隱藏控制按鈕 */
+        }
+        .admin-btn {
+            background: var(--accent-color);
             color: white;
-            width: 24px;
-            height: 24px;
+            width: 26px;
+            height: 26px;
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 14px;
+            font-size: 16px;
             border: 2px solid white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
         }
+        .admin-btn:hover { transform: scale(1.15); }
+        .admin-btn.del-btn { background: #ff4757; }
 
         /* 待選區池子 */
         #poolArea {
@@ -220,32 +247,60 @@
         }
         #winOverlay h2 { font-size: 3.5rem; color: var(--success-dark); margin-bottom: 30px; animation: bounce 1s infinite alternate; }
         @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+        
         .hidden { display: none !important; }
+
+        /* 自訂新增標籤彈跳視窗 */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 20px;
+            border: 4px dashed var(--primary-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-content h3 { margin-top: 0; color: var(--primary-dark); }
+        .modal-group { margin-bottom: 15px; text-align: left; }
     </style>
 </head>
 <body>
 
-    <h1>✨ 將文字擺放至正確位置 ✨</h1>
+    <h1 id="mainTitle">✨ 將文字擺放至正確位置 ✨</h1>
 
     <div class="admin-panel" id="adminPanel">
         <div class="control-group">
-            <strong>🛠️ 1. 老師設定區：</strong>
+            <strong>✏️ 1. 遊戲標題設定：</strong>
+            <br>
+            <input type="text" id="gameTitleInput" value="✨ 將文字擺放至正確位置 ✨" style="width: 100%; max-width: 400px; padding: 10px; font-size: 1.1rem; border-radius: 10px; border: 2px solid #ddd; margin-top: 8px;">
+        </div>
+
+        <div class="control-group">
+            <strong>🛠️ 2. 老師設定區 (底圖與標籤)：</strong>
             <br>
             <input type="file" id="imageUpload" accept="image/*">
             <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔 (JSON)</button>
             <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
             <input type="file" id="importFile" class="hidden" accept=".json">
-            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增標籤。(進度將自動儲存)</p>
+            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增文字或圖片標籤。新增後可透過右上角 ➕/➖ 調整大小！</p>
         </div>
 
         <div class="control-group">
-            <strong>☁️ 2. 雲端題庫匯入：</strong>
+            <strong>☁️ 3. 雲端題庫匯入：</strong>
             <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 直接從下拉選單選擇您要玩的題庫：</p>
-            
             <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <input type="text" id="githubRepo" value="" placeholder="您的 GitHub 帳號/倉庫名" style="width:200px;">
                 <button class="btn btn-outline" onclick="loadGithubList(false)">🔄 重新整理列表</button>
-                
                 <select id="githubFileList" onchange="importFromGithub(this.value)" style="padding: 10px 15px; font-size: 1.1rem; border: 3px solid var(--accent-color); border-radius: 10px; background: #fff; cursor: pointer; min-width: 250px;">
                     <option value="">-- 尚未讀取題庫 --</option>
                 </select>
@@ -254,6 +309,38 @@
 
         <div id="gameActions" style="text-align: center; margin-top: 15px;">
             <button id="startBtn" class="btn btn-success" style="display:none;">🚀 開始遊戲！</button>
+        </div>
+    </div>
+
+    <div id="addLabelModal" class="modal hidden">
+        <div class="modal-content">
+            <h3>➕ 新增拖曳物件</h3>
+            <div class="modal-group" style="text-align: center;">
+                <label style="margin-right: 15px; font-size: 1.1rem; cursor: pointer;">
+                    <input type="radio" name="labelType" value="text" checked onchange="toggleType()"> 📝 文字
+                </label>
+                <label style="font-size: 1.1rem; cursor: pointer;">
+                    <input type="radio" name="labelType" value="image" onchange="toggleType()"> 🖼️ 圖片
+                </label>
+            </div>
+            
+            <div class="modal-group" id="textInputDiv">
+                <input type="text" id="labelText" placeholder="請輸入文字內容" style="width: calc(100% - 20px);">
+            </div>
+            
+            <div class="modal-group hidden" id="imageInputDiv">
+                <input type="file" id="labelImage" accept="image/*" style="width: calc(100% - 20px);">
+            </div>
+            
+            <div class="modal-group">
+                <label style="font-weight: bold; color: #555;">物件大小: <span id="sizeValue">30</span>px</label><br>
+                <input type="range" id="labelSize" min="10" max="300" value="30" oninput="document.getElementById('sizeValue').innerText=this.value" style="width: 100%;">
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <button class="btn btn-primary" onclick="confirmAddLabel()">✅ 確定</button>
+                <button class="btn btn-outline" onclick="closeAddModal()">❌ 取消</button>
+            </div>
         </div>
     </div>
 
@@ -279,47 +366,155 @@
         const startBtn = document.getElementById('startBtn');
         const winOverlay = document.getElementById('winOverlay');
         const backToAdminBtn = document.getElementById('backToAdminBtn');
+        const addLabelModal = document.getElementById('addLabelModal');
+        const gameTitleInput = document.getElementById('gameTitleInput');
+        const mainTitle = document.getElementById('mainTitle');
         
-        let config = { imageData: null, labels: [] };
+        let config = { title: "✨ 將文字擺放至正確位置 ✨", imageData: null, labels: [] };
         let isPlaying = false;
         let hasWon = false;
+        let tempAddPosition = { x: 0, y: 0 }; // 暫存點擊位置
+
+        // --- 標題即時更新 ---
+        gameTitleInput.addEventListener('input', function() {
+            mainTitle.innerText = this.value;
+            config.title = this.value;
+            autoSave();
+        });
 
         // --- 自動儲存 ---
         function autoSave() {
             if (!config.imageData && config.labels.length === 0) return;
             const dataToSave = {
+                title: config.title,
                 imageData: config.imageData,
-                labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY }))
+                labels: config.labels.map(l => ({ 
+                    type: l.type, 
+                    content: l.content, 
+                    size: l.size, 
+                    x: l.targetX, 
+                    y: l.targetY 
+                }))
             };
             localStorage.setItem('cuteDragGameAutoSave', JSON.stringify(dataToSave));
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            // 1. 讀取本機自動儲存的進度
             const savedData = localStorage.getItem('cuteDragGameAutoSave');
             if (savedData) {
                 try { loadJsonToGame(savedData); } catch(e) { console.error("自動讀取失敗", e); }
             }
             
-            // 2. 如果預設有填寫 GitHub 倉庫名，載入網頁時自動抓取選單！
             const repoInput = document.getElementById('githubRepo').value.trim();
             if(repoInput !== "") {
-                loadGithubList(true); // true 代表靜默讀取，不跳出成功提示窗
+                loadGithubList(true);
             }
         });
 
-        // --- 核心功能 ---
-        function addLabel(text, x, y) {
+        // --- 視窗與新增邏輯 ---
+        bgImage.addEventListener('click', (e) => {
+            if (isPlaying) return;
+            const rect = gameContainer.getBoundingClientRect();
+            tempAddPosition.x = e.clientX - rect.left;
+            tempAddPosition.y = e.clientY - rect.top;
+            
+            // 重置視窗並顯示
+            document.getElementById('labelText').value = '';
+            document.getElementById('labelImage').value = '';
+            addLabelModal.classList.remove('hidden');
+        });
+
+        function toggleType() {
+            const type = document.querySelector('input[name="labelType"]:checked').value;
+            document.getElementById('textInputDiv').classList.toggle('hidden', type !== 'text');
+            document.getElementById('imageInputDiv').classList.toggle('hidden', type !== 'image');
+        }
+
+        function closeAddModal() {
+            addLabelModal.classList.add('hidden');
+        }
+
+        function confirmAddLabel() {
+            const type = document.querySelector('input[name="labelType"]:checked').value;
+            const size = parseInt(document.getElementById('labelSize').value);
+            let content = "";
+            
+            if (type === 'text') {
+                content = document.getElementById('labelText').value.trim();
+                if (!content) return alert("❌ 請輸入文字內容！");
+                createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
+                closeAddModal();
+            } else {
+                const file = document.getElementById('labelImage').files[0];
+                if (!file) return alert("❌ 請選擇要上傳的圖片！");
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    content = event.target.result;
+                    createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
+                    closeAddModal();
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // --- 建立拖曳標籤 ---
+        function createLabelDOM(type, content, size, x, y) {
             const label = document.createElement('div');
             label.className = 'text-label';
-            label.innerText = text;
             label.style.left = x + 'px';
             label.style.top = y + 'px';
             
-            const del = document.createElement('span');
-            del.className = 'del-btn';
-            del.innerHTML = '&times;';
-            del.onclick = (e) => {
+            // 處理內容 (文字或圖片)
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'label-content';
+            
+            if (type === 'text') {
+                contentDiv.innerText = content;
+                contentDiv.style.fontSize = size + 'px';
+            } else {
+                label.style.padding = '8px'; // 圖片模式縮小 padding
+                const img = document.createElement('img');
+                img.src = content;
+                img.style.width = size + 'px';
+                contentDiv.appendChild(img);
+            }
+            label.appendChild(contentDiv);
+
+            // 處理編輯控制項 (+ / - / X)
+            const adminControls = document.createElement('div');
+            adminControls.className = 'admin-controls';
+            
+            // 放大按鈕
+            const btnPlus = document.createElement('div');
+            btnPlus.innerHTML = '+';
+            btnPlus.className = 'admin-btn';
+            btnPlus.onclick = (e) => {
+                e.stopPropagation();
+                if (isPlaying) return;
+                const labelObj = config.labels.find(l => l.el === label);
+                labelObj.size = parseInt(labelObj.size) + 5;
+                applyLabelSize(labelObj);
+                autoSave();
+            };
+
+            // 縮小按鈕
+            const btnMinus = document.createElement('div');
+            btnMinus.innerHTML = '-';
+            btnMinus.className = 'admin-btn';
+            btnMinus.onclick = (e) => {
+                e.stopPropagation();
+                if (isPlaying) return;
+                const labelObj = config.labels.find(l => l.el === label);
+                labelObj.size = Math.max(10, parseInt(labelObj.size) - 5);
+                applyLabelSize(labelObj);
+                autoSave();
+            };
+
+            // 刪除按鈕
+            const btnDel = document.createElement('div');
+            btnDel.innerHTML = '&times;';
+            btnDel.className = 'admin-btn del-btn';
+            btnDel.onclick = (e) => {
                 e.stopPropagation();
                 if (isPlaying) return;
                 label.remove();
@@ -327,16 +522,32 @@
                 checkStartReady();
                 autoSave();
             };
-            label.appendChild(del);
+            
+            adminControls.appendChild(btnPlus);
+            adminControls.appendChild(btnMinus);
+            adminControls.appendChild(btnDel);
+            label.appendChild(adminControls);
 
             gameContainer.appendChild(label);
-            const labelObj = { text, x, y, targetX: x, targetY: y, el: label, isCorrect: false };
+
+            const labelObj = { type, content, size, x, y, targetX: x, targetY: y, el: label, isCorrect: false };
             config.labels.push(labelObj);
             makeDraggable(labelObj);
             checkStartReady();
             autoSave();
         }
 
+        function applyLabelSize(labelObj) {
+            const contentDiv = labelObj.el.querySelector('.label-content');
+            if (labelObj.type === 'text') {
+                contentDiv.style.fontSize = labelObj.size + 'px';
+            } else {
+                const img = contentDiv.querySelector('img');
+                if (img) img.style.width = labelObj.size + 'px';
+            }
+        }
+
+        // --- 底圖上傳 ---
         document.getElementById('imageUpload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -352,25 +563,22 @@
             }
         });
 
-        bgImage.addEventListener('click', (e) => {
-            if (isPlaying) return;
-            const rect = gameContainer.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const text = prompt("📝 輸入名稱：");
-            if (text) addLabel(text.trim(), x, y);
-        });
-
         function checkStartReady() {
             startBtn.style.display = (config.imageData && config.labels.length > 0) ? 'inline-block' : 'none';
         }
 
+        // --- 匯出/匯入 ---
         function exportData() {
-            const data = { imageData: config.imageData, labels: config.labels.map(l => ({ text: l.text, x: l.targetX, y: l.targetY })) };
+            const data = { 
+                title: config.title,
+                imageData: config.imageData, 
+                labels: config.labels.map(l => ({ type: l.type, content: l.content, size: l.size, x: l.targetX, y: l.targetY })) 
+            };
             const blob = new Blob([JSON.stringify(data)], {type: "application/json"});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url; a.download = "game_config.json"; a.click();
+            a.href = url;
+            a.download = "game_config.json"; a.click();
         }
 
         document.getElementById('importFile').addEventListener('change', function(e) {
@@ -386,51 +594,52 @@
             const data = JSON.parse(jsonStr);
             config.labels.forEach(l => l.el.remove());
             config.labels = [];
-            config.imageData = data.imageData;
-            bgImage.src = data.imageData;
-            bgImage.style.display = 'block';
-            data.labels.forEach(l => addLabel(l.text, l.x, l.y));
+            
+            // 讀取標題 (向後相容防錯)
+            if (data.title) {
+                config.title = data.title;
+                gameTitleInput.value = data.title;
+                mainTitle.innerText = data.title;
+            }
+
+            if (data.imageData) {
+                config.imageData = data.imageData;
+                bgImage.src = data.imageData;
+                bgImage.style.display = 'block';
+            }
+            
+            // 讀取標籤 (向後相容舊版的純文字 JSON)
+            if (data.labels) {
+                data.labels.forEach(l => {
+                    const type = l.type || 'text';
+                    const content = l.content || l.text;
+                    const size = l.size || 24; 
+                    createLabelDOM(type, content, size, l.x, l.y);
+                });
+            }
             autoSave();
         }
 
-        // --- GitHub 下拉選單讀取功能 ---
+        // --- GitHub 題庫功能 ---
         async function loadGithubList(isSilent = false) {
             const repo = document.getElementById('githubRepo').value.trim();
             const select = document.getElementById('githubFileList');
-            
-            if (!repo) {
-                if (!isSilent) alert("❌ 請先填寫您的 GitHub 帳號與倉庫名稱！");
-                return;
-            }
-            
+            if (!repo) { if (!isSilent) alert("❌ 請先填寫您的 GitHub 帳號與倉庫名稱！"); return; }
             try {
                 select.innerHTML = '<option value="">⏳ 題庫讀取中...</option>';
                 const res = await fetch(`https://api.github.com/repos/${repo}/contents/`);
-                if (!res.ok) throw new Error("找不到該倉庫或權限不足");
-                
+                if (!res.ok) throw new Error("找不到該倉庫");
                 const files = await res.json();
                 select.innerHTML = '<option value="">-- 👇 請選擇題庫開始遊玩 --</option>';
-                
                 let count = 0;
                 files.filter(f => f.name.endsWith('.json')).forEach(f => {
                     const opt = document.createElement('option');
-                    opt.value = f.download_url; 
-                    // 在選單中隱藏 .json 副檔名，讓畫面看起來更乾淨
-                    opt.innerText = f.name.replace('.json', ''); 
-                    select.appendChild(opt);
-                    count++;
+                    opt.value = f.download_url; opt.innerText = f.name.replace('.json', ''); 
+                    select.appendChild(opt); count++;
                 });
-                
-                if (count > 0) {
-                    if (!isSilent) alert(`✅ 成功載入 ${count} 個題庫！`);
-                } else {
-                    select.innerHTML = '<option value="">-- 倉庫中沒有題庫 --</option>';
-                    if (!isSilent) alert("⚠️ 您的倉庫中沒有找到 .json 檔案喔。");
-                }
-            } catch (err) { 
-                select.innerHTML = '<option value="">-- 讀取失敗，請檢查倉庫 --</option>';
-                if (!isSilent) alert("❌ 讀取失敗，請確認倉庫路徑是否正確，以及是否設為公開 (Public)。"); 
-            }
+                if (count > 0) { if (!isSilent) alert(`✅ 成功載入 ${count} 個題庫！`); } 
+                else { select.innerHTML = '<option value="">-- 倉庫中沒有題庫 --</option>'; if (!isSilent) alert("⚠️ 沒有找到 .json 檔案。"); }
+            } catch (err) { select.innerHTML = '<option value="">-- 讀取失敗 --</option>'; if (!isSilent) alert("❌ 讀取失敗，請確認倉庫為公開 (Public)。"); }
         }
 
         async function importFromGithub(url) {
@@ -440,20 +649,17 @@
                 if (!res.ok) throw new Error("網路請求失敗");
                 const text = await res.text();
                 loadJsonToGame(text);
-                
-                // 匯入成功後，將選單復原，方便下次可以選同一個題庫重新讀取
-                document.getElementById('githubFileList').value = ""; 
-            } catch(err) {
-                alert("❌ 匯入失敗，請確認網路連線。");
-                console.error(err);
-            }
+                document.getElementById('githubFileList').value = "";
+            } catch(err) { alert("❌ 匯入失敗，請確認網路連線。"); console.error(err); }
         }
 
         // --- 遊戲邏輯 ---
         startBtn.onclick = () => { startGameLogic(); };
 
         function startGameLogic() {
-            isPlaying = true; hasWon = false;
+            isPlaying = true;
+            hasWon = false;
+            gameContainer.classList.add('playing'); // 加入 class 隱藏編輯控制項
             document.getElementById('adminPanel').classList.add('hidden');
             backToAdminBtn.style.display = 'block';
             poolArea.style.display = 'block';
@@ -462,7 +668,6 @@
             gameContainer.style.height = (imgHeight + 180) + "px";
             
             config.labels.forEach((l) => {
-                l.el.querySelector('.del-btn').style.display = 'none';
                 l.isCorrect = false;
                 l.el.classList.remove('correct');
                 const randomX = Math.random() * (gameContainer.offsetWidth - 150) + 75;
@@ -476,18 +681,20 @@
         function replayGame() { winOverlay.style.display = 'none'; startGameLogic(); }
 
         function backToAdmin() {
-            isPlaying = false; hasWon = false;
+            isPlaying = false;
+            hasWon = false;
+            gameContainer.classList.remove('playing');
             winOverlay.style.display = 'none';
             document.getElementById('adminPanel').classList.remove('hidden');
             backToAdminBtn.style.display = 'none';
             poolArea.style.display = 'none';
             gameContainer.style.height = 'auto';
+            
             config.labels.forEach((l) => {
                 l.el.classList.remove('correct');
                 l.el.style.left = l.targetX + 'px';
                 l.el.style.top = l.targetY + 'px';
                 l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-                l.el.querySelector('.del-btn').style.display = 'flex';
             });
             autoSave();
         }
@@ -502,12 +709,16 @@
 
         function makeDraggable(obj) {
             const startDrag = (e) => {
-                if (obj.isCorrect && isPlaying) return;
-                if (isPlaying) { speak(obj.text); obj.el.style.transform = 'translate(-50%, -50%) scale(1.1)'; obj.el.style.zIndex = 100; }
+                // 如果點擊到編輯按鈕區，或者是已經擺放正確，則忽略拖曳
+                if (e.target.closest('.admin-controls') || (obj.isCorrect && isPlaying)) return;
+                
+                if (isPlaying) { 
+                    if (obj.type === 'text') speak(obj.content); // 只有文字發音
+                    obj.el.style.transform = 'translate(-50%, -50%) scale(1.1)'; 
+                    obj.el.style.zIndex = 100;
+                }
                 if (e.cancelable) e.preventDefault();
-                const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
-                const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
-
+                
                 const moveDrag = (e) => {
                     e.preventDefault();
                     const currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
@@ -516,16 +727,28 @@
                     obj.el.style.left = (currentX - rect.left) + 'px';
                     obj.el.style.top = (currentY - rect.top) + 'px';
                 };
-
+                
                 const endDrag = () => {
-                    document.removeEventListener('mousemove', moveDrag); document.removeEventListener('mouseup', endDrag);
-                    document.removeEventListener('touchmove', moveDrag); document.removeEventListener('touchend', endDrag);
-                    if (isPlaying) { obj.el.style.zIndex = 10; obj.el.style.transform = 'translate(-50%, -50%) scale(1)'; checkMatch(obj); }
-                    else { obj.targetX = parseFloat(obj.el.style.left); obj.targetY = parseFloat(obj.el.style.top); autoSave(); }
+                    document.removeEventListener('mousemove', moveDrag);
+                    document.removeEventListener('mouseup', endDrag);
+                    document.removeEventListener('touchmove', moveDrag); 
+                    document.removeEventListener('touchend', endDrag);
+                    
+                    if (isPlaying) { 
+                        obj.el.style.zIndex = 10; 
+                        obj.el.style.transform = 'translate(-50%, -50%) scale(1)'; 
+                        checkMatch(obj);
+                    } else { 
+                        obj.targetX = parseFloat(obj.el.style.left);
+                        obj.targetY = parseFloat(obj.el.style.top); 
+                        autoSave(); 
+                    }
                 };
+                
                 document.addEventListener('mousemove', moveDrag, { passive: false }); document.addEventListener('mouseup', endDrag);
                 document.addEventListener('touchmove', moveDrag, { passive: false }); document.addEventListener('touchend', endDrag);
             };
+            
             obj.el.addEventListener('mousedown', startDrag);
             obj.el.addEventListener('touchstart', startDrag, { passive: false });
         }
@@ -533,12 +756,17 @@
         function checkMatch(obj) {
             const dist = Math.sqrt(Math.pow(parseFloat(obj.el.style.left) - obj.targetX, 2) + Math.pow(parseFloat(obj.el.style.top) - obj.targetY, 2));
             if (dist < 60) {
-                obj.el.style.left = obj.targetX + 'px'; obj.el.style.top = obj.targetY + 'px';
+                obj.el.style.left = obj.targetX + 'px';
+                obj.el.style.top = obj.targetY + 'px';
                 obj.el.classList.add('correct'); obj.isCorrect = true;
+                
                 if (config.labels.every(l => l.isCorrect) && !hasWon) {
-                    hasWon = true; setTimeout(() => { winOverlay.style.display = 'flex'; speak("完成了，很棒!"); }, 500);
+                    hasWon = true;
+                    setTimeout(() => { winOverlay.style.display = 'flex'; speak("完成了，很棒!"); }, 500);
                 }
-            } else { obj.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`; }
+            } else { 
+                obj.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`;
+            }
         }
     </script>
 </body>

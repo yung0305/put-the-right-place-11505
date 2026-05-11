@@ -160,7 +160,7 @@
         }
         
         .label-content {
-            pointer-events: none; /* 防止內容干擾拖曳 */
+            pointer-events: none;
         }
         .label-content img {
             -webkit-user-drag: none;
@@ -174,7 +174,7 @@
             100% { transform: translate(-50%, -50%) scale(1); }
         }
 
-        /* 新增：編輯模式專用控制按鈕 */
+        /* 編輯模式專用控制按鈕 */
         .admin-controls {
             position: absolute;
             top: -15px;
@@ -184,7 +184,7 @@
             z-index: 20;
         }
         #gameContainer.playing .admin-controls {
-            display: none !important; /* 遊戲進行中隱藏控制按鈕 */
+            display: none !important;
         }
         .admin-btn {
             background: var(--accent-color);
@@ -292,7 +292,7 @@
             <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔 (JSON)</button>
             <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
             <input type="file" id="importFile" class="hidden" accept=".json">
-            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增文字或圖片標籤。新增後可透過右上角 ➕/➖ 調整大小！</p>
+            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增文字或圖片標籤。圖片上傳會自動壓縮以減小檔案體積！</p>
         </div>
 
         <div class="control-group">
@@ -330,11 +330,12 @@
             
             <div class="modal-group hidden" id="imageInputDiv">
                 <input type="file" id="labelImage" accept="image/*" style="width: calc(100% - 20px);">
+                <p style="color:#888; font-size:0.8rem; margin-top:5px;">⚠️ 圖片將自動壓縮處理</p>
             </div>
             
             <div class="modal-group">
-                <label style="font-weight: bold; color: #555;">物件大小: <span id="sizeValue">30</span>px</label><br>
-                <input type="range" id="labelSize" min="10" max="300" value="30" oninput="document.getElementById('sizeValue').innerText=this.value" style="width: 100%;">
+                <label style="font-weight: bold; color: #555;">物件大小: <span id="sizeValue">40</span>px</label><br>
+                <input type="range" id="labelSize" min="10" max="300" value="40" oninput="document.getElementById('sizeValue').innerText=this.value" style="width: 100%;">
             </div>
             
             <div style="margin-top: 20px;">
@@ -373,7 +374,40 @@
         let config = { title: "✨ 將文字擺放至正確位置 ✨", imageData: null, labels: [] };
         let isPlaying = false;
         let hasWon = false;
-        let tempAddPosition = { x: 0, y: 0 }; // 暫存點擊位置
+        let tempAddPosition = { x: 0, y: 0 };
+
+        // --- 圖片壓縮核心函式 ---
+        // 使用 Canvas 將圖片轉換為 webp 格式壓縮，保留透明度且大幅縮減體積
+        function compressImage(file, maxWidth, quality, callback) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    let width = img.width;
+                    let height = img.height;
+
+                    // 若超過最大寬度則等比例縮小
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 繪製縮小後的圖片
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 轉出壓縮過的 base64 (使用 webp 格式以支援透明度與高壓縮率)
+                    const dataUrl = canvas.toDataURL('image/webp', quality);
+                    callback(dataUrl);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
 
         // --- 標題即時更新 ---
         gameTitleInput.addEventListener('input', function() {
@@ -418,7 +452,6 @@
             tempAddPosition.x = e.clientX - rect.left;
             tempAddPosition.y = e.clientY - rect.top;
             
-            // 重置視窗並顯示
             document.getElementById('labelText').value = '';
             document.getElementById('labelImage').value = '';
             addLabelModal.classList.remove('hidden');
@@ -447,13 +480,13 @@
             } else {
                 const file = document.getElementById('labelImage').files[0];
                 if (!file) return alert("❌ 請選擇要上傳的圖片！");
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    content = event.target.result;
+                
+                // 標籤圖片壓縮：最大寬度 400px，畫質 0.8
+                compressImage(file, 400, 0.8, (compressedDataUrl) => {
+                    content = compressedDataUrl;
                     createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
                     closeAddModal();
-                };
-                reader.readAsDataURL(file);
+                });
             }
         }
 
@@ -464,7 +497,6 @@
             label.style.left = x + 'px';
             label.style.top = y + 'px';
             
-            // 處理內容 (文字或圖片)
             const contentDiv = document.createElement('div');
             contentDiv.className = 'label-content';
             
@@ -472,7 +504,7 @@
                 contentDiv.innerText = content;
                 contentDiv.style.fontSize = size + 'px';
             } else {
-                label.style.padding = '8px'; // 圖片模式縮小 padding
+                label.style.padding = '8px';
                 const img = document.createElement('img');
                 img.src = content;
                 img.style.width = size + 'px';
@@ -480,11 +512,9 @@
             }
             label.appendChild(contentDiv);
 
-            // 處理編輯控制項 (+ / - / X)
             const adminControls = document.createElement('div');
             adminControls.className = 'admin-controls';
             
-            // 放大按鈕
             const btnPlus = document.createElement('div');
             btnPlus.innerHTML = '+';
             btnPlus.className = 'admin-btn';
@@ -497,7 +527,6 @@
                 autoSave();
             };
 
-            // 縮小按鈕
             const btnMinus = document.createElement('div');
             btnMinus.innerHTML = '-';
             btnMinus.className = 'admin-btn';
@@ -510,7 +539,6 @@
                 autoSave();
             };
 
-            // 刪除按鈕
             const btnDel = document.createElement('div');
             btnDel.innerHTML = '&times;';
             btnDel.className = 'admin-btn del-btn';
@@ -547,19 +575,18 @@
             }
         }
 
-        // --- 底圖上傳 ---
+        // --- 底圖上傳與壓縮 ---
         document.getElementById('imageUpload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    bgImage.src = event.target.result;
+                // 底圖壓縮：最大寬度 1200px，畫質 0.75
+                compressImage(file, 1200, 0.75, (compressedDataUrl) => {
+                    bgImage.src = compressedDataUrl;
                     bgImage.style.display = 'block';
-                    config.imageData = event.target.result;
+                    config.imageData = compressedDataUrl;
                     autoSave();
                     checkStartReady();
-                };
-                reader.readAsDataURL(file);
+                });
             }
         });
 
@@ -595,7 +622,6 @@
             config.labels.forEach(l => l.el.remove());
             config.labels = [];
             
-            // 讀取標題 (向後相容防錯)
             if (data.title) {
                 config.title = data.title;
                 gameTitleInput.value = data.title;
@@ -608,12 +634,11 @@
                 bgImage.style.display = 'block';
             }
             
-            // 讀取標籤 (向後相容舊版的純文字 JSON)
             if (data.labels) {
                 data.labels.forEach(l => {
                     const type = l.type || 'text';
                     const content = l.content || l.text;
-                    const size = l.size || 24; 
+                    const size = l.size || 30; 
                     createLabelDOM(type, content, size, l.x, l.y);
                 });
             }
@@ -659,7 +684,7 @@
         function startGameLogic() {
             isPlaying = true;
             hasWon = false;
-            gameContainer.classList.add('playing'); // 加入 class 隱藏編輯控制項
+            gameContainer.classList.add('playing');
             document.getElementById('adminPanel').classList.add('hidden');
             backToAdminBtn.style.display = 'block';
             poolArea.style.display = 'block';
@@ -709,11 +734,10 @@
 
         function makeDraggable(obj) {
             const startDrag = (e) => {
-                // 如果點擊到編輯按鈕區，或者是已經擺放正確，則忽略拖曳
                 if (e.target.closest('.admin-controls') || (obj.isCorrect && isPlaying)) return;
                 
                 if (isPlaying) { 
-                    if (obj.type === 'text') speak(obj.content); // 只有文字發音
+                    if (obj.type === 'text') speak(obj.content);
                     obj.el.style.transform = 'translate(-50%, -50%) scale(1.1)'; 
                     obj.el.style.zIndex = 100;
                 }

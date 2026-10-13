@@ -152,8 +152,8 @@
             align-items: center;
         }
         .text-label.correct {
-            border-color: var(--success-dark);
-            background: var(--success-color);
+            border-color: var(--success-dark) !important;
+            background: var(--success-color) !important;
             color: #1a634e;
             cursor: default;
             animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -268,7 +268,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             text-align: center;
             width: 90%;
-            max-width: 400px;
+            max-width: 420px;
         }
         .modal-content h3 { margin-top: 0; color: var(--primary-dark); }
         .modal-group { margin-bottom: 15px; text-align: left; }
@@ -290,14 +290,14 @@
             <br>
             <input type="file" id="imageUpload" accept="image/*">
             <button class="btn btn-outline" onclick="exportData()">💾 匯出設定檔 (JSON)</button>
-            <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
+            <button class="btn btn-outline" id="localImportBtn" onclick="document.getElementById('importFile').click()">📂 本機匯入</button>
             <input type="file" id="importFile" class="hidden" accept=".json">
-            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增文字或圖片標籤。圖片上傳會自動壓縮以減小檔案體積！</p>
+            <p style="color:#888; font-size:0.9rem; margin-top:10px;">💡 提示：上傳底圖後，在圖片上「點擊」即可新增文字、圖片、欄框或箭頭。</p>
         </div>
 
-        <div class="control-group">
+        <div class="control-group" id="githubImportGroup">
             <strong>☁️ 3. 雲端題庫匯入：</strong>
-            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 直接從下拉選單選擇您要玩的題庫：</p>
+            <p style="color:#888; font-size:0.9rem; margin:10px 0 5px 0;">🎯 手動輸入 GitHub 帳號與倉庫名，或直接從下拉選單選擇您要玩的題庫：</p>
             <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <input type="text" id="githubRepo" value="" placeholder="您的 GitHub 帳號/倉庫名" style="width:200px;">
                 <button class="btn btn-outline" onclick="loadGithubList(false)">🔄 重新整理列表</button>
@@ -314,13 +314,19 @@
 
     <div id="addLabelModal" class="modal hidden">
         <div class="modal-content">
-            <h3>➕ 新增拖曳物件</h3>
-            <div class="modal-group" style="text-align: center;">
-                <label style="margin-right: 15px; font-size: 1.1rem; cursor: pointer;">
+            <h3>➕ 新增拖曳物件 / 輔助提示</h3>
+            <div class="modal-group" style="text-align: center; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                <label style="font-size: 1.1rem; cursor: pointer;">
                     <input type="radio" name="labelType" value="text" checked onchange="toggleType()"> 📝 文字
                 </label>
                 <label style="font-size: 1.1rem; cursor: pointer;">
                     <input type="radio" name="labelType" value="image" onchange="toggleType()"> 🖼️ 圖片
+                </label>
+                <label style="font-size: 1.1rem; cursor: pointer;">
+                    <input type="radio" name="labelType" value="frame" onchange="toggleType()"> 🔲 欄框
+                </label>
+                <label style="font-size: 1.1rem; cursor: pointer;">
+                    <input type="radio" name="labelType" value="arrow" onchange="toggleType()"> ↗️ 箭頭
                 </label>
             </div>
             
@@ -331,6 +337,25 @@
             <div class="modal-group hidden" id="imageInputDiv">
                 <input type="file" id="labelImage" accept="image/*" style="width: calc(100% - 20px);">
                 <p style="color:#888; font-size:0.8rem; margin-top:5px;">⚠️ 圖片將自動壓縮處理</p>
+            </div>
+
+            <div class="modal-group hidden" id="frameInputDiv">
+                <p style="color:#555; font-size:0.9rem; text-align:center;">🔲 將新增一個空心虛線欄框作為固定輔助提示，可利用下方拉桿調整寬高。</p>
+            </div>
+
+            <div class="modal-group hidden" id="arrowInputDiv">
+                <p style="color:#555; font-size:0.9rem; margin-bottom:5px;">↗️ 請選擇箭頭指向：</p>
+                <select id="arrowDirection" style="width: 100%;">
+                    <option value="up">⬆️ 向上</option>
+                    <option value="down">⬇️ 向下</option>
+                    <option value="left">⬅️ 向左</option>
+                    <option value="right">➡️ 向右</option>
+                    <option value="up-left">↖️ 左上</option>
+                    <option value="up-right">↗️ 右上</option>
+                    <option value="down-left">↙️ 左下</option>
+                    <option value="down-right">↘️ 右下</option>
+                </select>
+                <p style="color:#555; font-size:0.85rem; margin-top:5px; text-align:center;">箭頭在遊戲開始後會固定在原位作為引導。</p>
             </div>
             
             <div class="modal-group">
@@ -377,7 +402,6 @@
         let tempAddPosition = { x: 0, y: 0 };
 
         // --- 圖片壓縮核心函式 ---
-        // 使用 Canvas 將圖片轉換為 webp 格式壓縮，保留透明度且大幅縮減體積
         function compressImage(file, maxWidth, quality, callback) {
             const reader = new FileReader();
             reader.onload = function(event) {
@@ -386,7 +410,6 @@
                     let width = img.width;
                     let height = img.height;
 
-                    // 若超過最大寬度則等比例縮小
                     if (width > maxWidth) {
                         height = Math.round((height * maxWidth) / width);
                         width = maxWidth;
@@ -396,11 +419,8 @@
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    
-                    // 繪製縮小後的圖片
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // 轉出壓縮過的 base64 (使用 webp 格式以支援透明度與高壓縮率)
                     const dataUrl = canvas.toDataURL('image/webp', quality);
                     callback(dataUrl);
                 };
@@ -439,9 +459,24 @@
                 try { loadJsonToGame(savedData); } catch(e) { console.error("自動讀取失敗", e); }
             }
             
-            const repoInput = document.getElementById('githubRepo').value.trim();
-            if(repoInput !== "") {
-                loadGithubList(true);
+            // 自動偵測環境
+            const hostname = window.location.hostname;
+            const githubRepoInput = document.getElementById('githubRepo');
+
+            if (hostname.includes('github.io')) {
+                const username = hostname.split('.')[0];
+                const pathParts = window.location.pathname.split('/');
+                const repo = (pathParts.length > 1 && pathParts[1] !== "") ? pathParts[1] : `${username}.github.io`;
+                
+                if (username && repo && githubRepoInput.value === "") {
+                    githubRepoInput.value = `${username}/${repo}`;
+                    loadGithubList(true);
+                }
+            } else {
+                const repoInput = githubRepoInput.value.trim();
+                if(repoInput !== "") {
+                    loadGithubList(true);
+                }
             }
         });
 
@@ -461,6 +496,8 @@
             const type = document.querySelector('input[name="labelType"]:checked').value;
             document.getElementById('textInputDiv').classList.toggle('hidden', type !== 'text');
             document.getElementById('imageInputDiv').classList.toggle('hidden', type !== 'image');
+            document.getElementById('frameInputDiv').classList.toggle('hidden', type !== 'frame');
+            document.getElementById('arrowInputDiv').classList.toggle('hidden', type !== 'arrow');
         }
 
         function closeAddModal() {
@@ -477,16 +514,23 @@
                 if (!content) return alert("❌ 請輸入文字內容！");
                 createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
                 closeAddModal();
-            } else {
+            } else if (type === 'image') {
                 const file = document.getElementById('labelImage').files[0];
                 if (!file) return alert("❌ 請選擇要上傳的圖片！");
                 
-                // 標籤圖片壓縮：最大寬度 400px，畫質 0.8
                 compressImage(file, 400, 0.8, (compressedDataUrl) => {
                     content = compressedDataUrl;
                     createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
                     closeAddModal();
                 });
+            } else if (type === 'frame') {
+                content = "frame";
+                createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
+                closeAddModal();
+            } else if (type === 'arrow') {
+                content = document.getElementById('arrowDirection').value;
+                createLabelDOM(type, content, size, tempAddPosition.x, tempAddPosition.y);
+                closeAddModal();
             }
         }
 
@@ -503,12 +547,37 @@
             if (type === 'text') {
                 contentDiv.innerText = content;
                 contentDiv.style.fontSize = size + 'px';
-            } else {
+            } else if (type === 'image') {
                 label.style.padding = '8px';
                 const img = document.createElement('img');
                 img.src = content;
                 img.style.width = size + 'px';
                 contentDiv.appendChild(img);
+            } else if (type === 'frame') {
+                label.style.padding = '0';
+                label.style.background = 'rgba(255, 255, 255, 0.4)';
+                label.style.border = '4px dashed var(--primary-color)';
+                label.style.borderRadius = '12px';
+                contentDiv.style.width = (size * 1.5) + 'px'; 
+                contentDiv.style.height = size + 'px';
+            } else if (type === 'arrow') {
+                label.style.padding = '0';
+                label.style.background = 'transparent';
+                label.style.border = 'none';
+                label.style.boxShadow = 'none';
+                
+                const rotations = {
+                    'up': 0, 'down': 180, 'left': -90, 'right': 90,
+                    'up-left': -45, 'up-right': 45, 'down-left': -135, 'down-right': 135
+                };
+                const deg = rotations[content] || 0;
+                
+                contentDiv.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--primary-dark)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" 
+                         style="width: ${size}px; height: ${size}px; transform: rotate(${deg}deg); filter: drop-shadow(0 3px 3px rgba(0,0,0,0.3));">
+                        <line x1="12" y1="21" x2="12" y2="3"></line>
+                        <polyline points="5 10 12 3 19 10"></polyline>
+                    </svg>`;
             }
             label.appendChild(contentDiv);
 
@@ -569,9 +638,18 @@
             const contentDiv = labelObj.el.querySelector('.label-content');
             if (labelObj.type === 'text') {
                 contentDiv.style.fontSize = labelObj.size + 'px';
-            } else {
+            } else if (labelObj.type === 'image') {
                 const img = contentDiv.querySelector('img');
                 if (img) img.style.width = labelObj.size + 'px';
+            } else if (labelObj.type === 'frame') {
+                contentDiv.style.width = (labelObj.size * 1.5) + 'px';
+                contentDiv.style.height = labelObj.size + 'px';
+            } else if (labelObj.type === 'arrow') {
+                const svg = contentDiv.querySelector('svg');
+                if (svg) {
+                    svg.style.width = labelObj.size + 'px';
+                    svg.style.height = labelObj.size + 'px';
+                }
             }
         }
 
@@ -579,7 +657,6 @@
         document.getElementById('imageUpload').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                // 底圖壓縮：最大寬度 1200px，畫質 0.75
                 compressImage(file, 1200, 0.75, (compressedDataUrl) => {
                     bgImage.src = compressedDataUrl;
                     bgImage.style.display = 'block';
@@ -693,14 +770,28 @@
             gameContainer.style.height = (imgHeight + 180) + "px";
             
             config.labels.forEach((l) => {
-                l.isCorrect = false;
-                l.el.classList.remove('correct');
-                const randomX = Math.random() * (gameContainer.offsetWidth - 150) + 75;
-                const randomY = imgHeight + 100 + (Math.random() * 30 - 15);
-                l.el.style.left = randomX + 'px';
-                l.el.style.top = randomY + 'px';
-                l.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`;
+                if (l.type === 'frame' || l.type === 'arrow') {
+                    // 欄框與箭頭固定在原位，作為提示
+                    l.el.style.left = l.targetX + 'px';
+                    l.el.style.top = l.targetY + 'px';
+                    l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                    l.el.style.zIndex = 5; // 置於較底層避免擋住目標
+                } else {
+                    l.isCorrect = false;
+                    l.el.classList.remove('correct');
+                    const randomX = Math.random() * (gameContainer.offsetWidth - 150) + 75;
+                    const randomY = imgHeight + 100 + (Math.random() * 30 - 15);
+                    l.el.style.left = randomX + 'px';
+                    l.el.style.top = randomY + 'px';
+                    l.el.style.transform = `translate(-50%, -50%) rotate(${Math.random() * 10 - 5}deg)`;
+                    l.el.style.zIndex = 10;
+                }
             });
+
+            const playableItems = config.labels.filter(l => l.type !== 'frame' && l.type !== 'arrow');
+            if (playableItems.length === 0 && config.labels.length > 0) {
+                alert("⚠️ 目前設定中只有輔助標示，沒有可供拖曳過關的文字或圖片喔！");
+            }
         }
 
         function replayGame() { winOverlay.style.display = 'none'; startGameLogic(); }
@@ -720,6 +811,7 @@
                 l.el.style.left = l.targetX + 'px';
                 l.el.style.top = l.targetY + 'px';
                 l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+                l.el.style.zIndex = 10;
             });
             autoSave();
         }
@@ -735,6 +827,9 @@
         function makeDraggable(obj) {
             const startDrag = (e) => {
                 if (e.target.closest('.admin-controls') || (obj.isCorrect && isPlaying)) return;
+                
+                // 遊戲進行中不允許拖曳欄框與箭頭
+                if (isPlaying && (obj.type === 'frame' || obj.type === 'arrow')) return;
                 
                 if (isPlaying) { 
                     if (obj.type === 'text') speak(obj.content);
@@ -782,9 +877,12 @@
             if (dist < 60) {
                 obj.el.style.left = obj.targetX + 'px';
                 obj.el.style.top = obj.targetY + 'px';
-                obj.el.classList.add('correct'); obj.isCorrect = true;
+                obj.el.classList.add('correct'); 
+                obj.isCorrect = true;
                 
-                if (config.labels.every(l => l.isCorrect) && !hasWon) {
+                // 檢查過關時，只計算非提示類（欄框、箭頭）的項目
+                const playableItems = config.labels.filter(l => l.type !== 'frame' && l.type !== 'arrow');
+                if (playableItems.length > 0 && playableItems.every(l => l.isCorrect) && !hasWon) {
                     hasWon = true;
                     setTimeout(() => { winOverlay.style.display = 'flex'; speak("完成了，很棒!"); }, 500);
                 }

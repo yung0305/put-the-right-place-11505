@@ -24,7 +24,7 @@
             flex-direction: column;
             align-items: center;
             color: var(--text-color);
-            overflow-x: hidden;
+            /* 移除了 overflow-x: hidden 以避免邊緣按鈕被裁切 */
         }
         h1 { 
             color: #fff;
@@ -104,7 +104,8 @@
             border-radius: 20px;
             background-color: #fff;
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            overflow: hidden;
+            /* 解除 overflow: hidden 讓跑出去的文字也能被看見並拖曳回來 */
+            overflow: visible; 
             min-height: 300px;
             width: 100%;
             display: flex;
@@ -258,7 +259,8 @@
             z-index: 1000;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* 改為靠上對齊，避免手機鍵盤擋住底部 */
+            padding-top: 5vh; 
         }
         .modal-content {
             background: white;
@@ -269,6 +271,8 @@
             text-align: center;
             width: 90%;
             max-width: 420px;
+            max-height: 85vh; /* 限制最高高度 */
+            overflow-y: auto; /* 內容過長時允許上下滑動 */
         }
         .modal-content h3 { margin-top: 0; color: var(--primary-dark); }
         .modal-group { margin-bottom: 15px; text-align: left; }
@@ -707,6 +711,28 @@
 
             if (data.imageData) {
                 config.imageData = data.imageData;
+                
+                // 圖片載入後，進行防呆校正：將跑出邊界的文字自動吸附回可見範圍
+                bgImage.onload = () => {
+                    setTimeout(() => {
+                        const maxX = gameContainer.offsetWidth;
+                        const maxY = bgImage.offsetHeight;
+                        config.labels.forEach(l => {
+                            let isClamped = false;
+                            if (l.targetX < 20) { l.targetX = 20; isClamped = true; }
+                            if (l.targetX > maxX - 20) { l.targetX = maxX - 20; isClamped = true; }
+                            if (l.targetY < 20) { l.targetY = 20; isClamped = true; }
+                            if (l.targetY > maxY - 20) { l.targetY = maxY - 20; isClamped = true; }
+                            
+                            if (isClamped && !isPlaying) {
+                                l.el.style.left = l.targetX + 'px';
+                                l.el.style.top = l.targetY + 'px';
+                            }
+                        });
+                        if (!isPlaying) autoSave();
+                    }, 50);
+                };
+                
                 bgImage.src = data.imageData;
                 bgImage.style.display = 'block';
             }
@@ -775,7 +801,7 @@
                     l.el.style.left = l.targetX + 'px';
                     l.el.style.top = l.targetY + 'px';
                     l.el.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-                    l.el.style.zIndex = 5; // 置於較底層避免擋住目標
+                    l.el.style.zIndex = 5; 
                 } else {
                     l.isCorrect = false;
                     l.el.classList.remove('correct');
